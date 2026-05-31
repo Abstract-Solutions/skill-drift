@@ -1,0 +1,27 @@
+docs/adr/0003-behind-from-folder-tree-hash.md
+  s_a5e9b5dc0c5c8d::t_6dc7261a51ae30 1-23
+CONTEXT.md
+  s_a5e9b5dc0c5c8d::t_8fb75d4ab85e39 1-109
+docs/adr/0002-c3-seam.md
+  s_a5e9b5dc0c5c8d::t_aa7d1fc4a1ed78 1-20
+docs/adr/0001-greenfield-local-tauri.md
+  s_a5e9b5dc0c5c8d::t_2c77c01707fd2b 1-35
+docs/adr/0004-baseline-commit-cache.md
+  s_a5e9b5dc0c5c8d::t_ed818cd16cd20f 1-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "36a885b18d0fe4282e5266c8b7ce8495fea8c784",
+  "prompts": {},
+  "sessions": {
+    "s_a5e9b5dc0c5c8d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7f418f74-0652-472d-99a8-0472f640d601",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
