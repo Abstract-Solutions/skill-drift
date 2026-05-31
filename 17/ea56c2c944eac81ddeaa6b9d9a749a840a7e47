@@ -1,0 +1,19 @@
+tsconfig.json
+  s_c8d9103121ae7c::t_a41df2c4d3c1e2 3,5,24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "17ea56c2c944eac81ddeaa6b9d9a749a840a7e47",
+  "prompts": {},
+  "sessions": {
+    "s_c8d9103121ae7c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b86fd16f-a2e3-44a3-a174-e81e3987fe7a",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
