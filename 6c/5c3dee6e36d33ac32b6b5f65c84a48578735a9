@@ -1,0 +1,20 @@
+README.md
+  s_a5e9b5dc0c5c8d::t_f2c8392c84b105 13
+  s_a5e9b5dc0c5c8d::t_35ce8e6f0e45df 1,3-4,6-8,10-12,14-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6c5c3dee6e36d33ac32b6b5f65c84a48578735a9",
+  "prompts": {},
+  "sessions": {
+    "s_a5e9b5dc0c5c8d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7f418f74-0652-472d-99a8-0472f640d601",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
