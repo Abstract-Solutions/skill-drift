@@ -1,49 +1,38 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { listen } from "@tauri-apps/api/event";
+import { makeGitHubFetcher } from "./engine/github.ts";
+
+// Unauthenticated — the spike needs no token.
+const fetchCommit = makeGitHubFetcher();
+const REPO = { owner: "anthropics", repo: "skills", branch: "main" };
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const [lines, setLines] = useState<string[]>([]);
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  useEffect(() => {
+    // Each result goes to React state and, via invoke, the dev terminal.
+    const poll = async (trigger: string) => {
+      const r = await fetchCommit(REPO.owner, REPO.repo, REPO.branch);
+      const ts = new Date().toISOString();
+      const line = r.ok
+        ? `${ts} [web:${trigger}] ok ${r.commit.sha.slice(0, 7)} @ ${r.commit.date}`
+        : `${ts} [web:${trigger}] FAIL ${r.error}`;
+      void invoke("log", { line }).catch(() => {});
+      setLines((prev) => [line, ...prev].slice(0, 50));
+    };
+
+    // Fetch on mount: covers the startup race where Rust's first emit beats
+    // this listener (events aren't buffered).
+    poll("mount");
+    const unlisten = listen("poll-tick", () => poll("tick"));
+    return () => void unlisten.then((f) => f());
+  }, []);
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+    <main style={{ fontFamily: "monospace", padding: 16 }}>
+      <h1>skill-drift spike — hidden background poll</h1>
+      <pre>{lines.join("\n")}</pre>
     </main>
   );
 }
