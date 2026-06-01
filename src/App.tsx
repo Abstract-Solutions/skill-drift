@@ -18,7 +18,7 @@ function App() {
       const line = r.ok
         ? `${ts} [web:${trigger}] ok ${r.commit.sha.slice(0, 7)} @ ${r.commit.date}`
         : `${ts} [web:${trigger}] FAIL ${r.error}`;
-      invoke("log", { line });
+      void invoke("log", { line }).catch(() => {});
       setLines((prev) => [line, ...prev].slice(0, 50));
     };
 

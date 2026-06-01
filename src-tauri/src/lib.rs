@@ -22,14 +22,17 @@ pub fn run() {
                 let secs: u64 = std::env::var("POLL_SECS")
                     .ok()
                     .and_then(|s| s.parse().ok())
-                    .unwrap_or(60);
+                    .unwrap_or(60)
+                    .max(1); // interval() panics on a zero period
                 let mut ticker = interval(Duration::from_secs(secs));
                 let mut n: u64 = 0;
                 loop {
                     ticker.tick().await;
                     n += 1;
                     println!("[rust] tick {n} emitted");
-                    let _ = handle.emit("poll-tick", ());
+                    if let Err(e) = handle.emit("poll-tick", ()) {
+                        eprintln!("[rust] emit poll-tick failed: {e}");
+                    }
                 }
             });
             Ok(())
