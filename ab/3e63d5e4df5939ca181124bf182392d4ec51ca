@@ -1,0 +1,22 @@
+docs/adr/0010-poll-cycle-deep-ts-module.md
+  s_f4b11abb558877::t_ee224e44fe7e8b 1-73
+CONTEXT.md
+  s_f4b11abb558877::t_83475236d14fd5 47-53
+  s_f4b11abb558877::t_aaf157c487a013 80-103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ab3e63d5e4df5939ca181124bf182392d4ec51ca",
+  "prompts": {},
+  "sessions": {
+    "s_f4b11abb558877": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ea17947b-7df7-4d21-8261-4e9dfb2cc62c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
