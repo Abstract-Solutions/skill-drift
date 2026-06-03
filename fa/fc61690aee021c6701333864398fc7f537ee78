@@ -1,0 +1,23 @@
+docs/architecture-overview.html
+  s_f4b11abb558877::t_093cb47c5f1b0a 296
+  s_f4b11abb558877::t_b4292a8699589a 127
+  s_f4b11abb558877::t_7e836f5566da8f 268
+docs/adr/0010-poll-cycle-deep-ts-module.md
+  s_f4b11abb558877::t_c752263a6ef567 27-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "fafc61690aee021c6701333864398fc7f537ee78",
+  "prompts": {},
+  "sessions": {
+    "s_f4b11abb558877": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ea17947b-7df7-4d21-8261-4e9dfb2cc62c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
