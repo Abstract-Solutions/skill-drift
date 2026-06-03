@@ -1,38 +1,26 @@
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import { makeGitHubFetcher } from "./engine/github.ts";
+import { useEffect } from "react";
+import { renderMenu } from "./platform.ts";
+import type { MenuModel } from "./engine/menu.ts";
 
-// Unauthenticated — the spike needs no token.
-const fetchCommit = makeGitHubFetcher();
-const REPO = { owner: "anthropics", repo: "skills", branch: "main" };
+// A static menu frame until the poll cycle builds one from real Skill status.
+const PLACEHOLDER_MENU: MenuModel = {
+  rows: [
+    { kind: "header", label: "skill-drift — no data yet" },
+    { kind: "separator" },
+    { kind: "quit", label: "Quit skill-drift" },
+  ],
+};
 
 function App() {
-  const [lines, setLines] = useState<string[]>([]);
-
   useEffect(() => {
-    // Each result goes to React state and, via invoke, the dev terminal.
-    const poll = async (trigger: string) => {
-      const r = await fetchCommit(REPO.owner, REPO.repo, REPO.branch);
-      const ts = new Date().toISOString();
-      const line = r.ok
-        ? `${ts} [web:${trigger}] ok ${r.commit.sha.slice(0, 7)} @ ${r.commit.date}`
-        : `${ts} [web:${trigger}] FAIL ${r.error}`;
-      void invoke("log", { line }).catch(() => {});
-      setLines((prev) => [line, ...prev].slice(0, 50));
-    };
-
-    // Fetch on mount: covers the startup race where Rust's first emit beats
-    // this listener (events aren't buffered).
-    poll("mount");
-    const unlisten = listen("poll-tick", () => poll("tick"));
-    return () => void unlisten.then((f) => f());
+    void renderMenu(PLACEHOLDER_MENU);
   }, []);
 
+  // Window stays hidden — this webview is the engine/view worker (ADR-0009); the
+  // body shows only if it's unhidden for debugging.
   return (
     <main style={{ fontFamily: "monospace", padding: 16 }}>
-      <h1>skill-drift spike — hidden background poll</h1>
-      <pre>{lines.join("\n")}</pre>
+      skill-drift — hidden engine webview; UI is the menu-bar tray.
     </main>
   );
 }
