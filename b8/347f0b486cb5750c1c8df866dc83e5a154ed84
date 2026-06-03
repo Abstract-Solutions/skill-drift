@@ -1,0 +1,40 @@
+docs/adr/0005-background-poll-in-hidden-webview.md
+  s_4b29d5f0f80229::t_9412d6c468cc75 9-11
+  s_4b29d5f0f80229::t_878c19d4998b51 1-8,12-39
+docs/adr/0007-rust-native-io-boundary.md
+  s_4b29d5f0f80229::t_e745447b09436d 1-34
+docs/adr/0009-native-tray-menu-ui.md
+  s_4b29d5f0f80229::t_ac7c60c2e3158b 1-38
+docs/architecture-overview.html
+  s_c18781c98f2e5f::t_e893ebefbc9e29 1-300
+docs/adr/0001-greenfield-local-tauri.md
+  s_4b29d5f0f80229::t_aa9855263f408f 34
+docs/adr/0008-app-private-store.md
+  s_4b29d5f0f80229::t_48b37ba4e4d579 1-26
+docs/adr/0006-token-read-path.md
+  s_4b29d5f0f80229::t_55bf8d47bbd7df 1-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b8347f0b486cb5750c1c8df866dc83e5a154ed84",
+  "prompts": {},
+  "sessions": {
+    "s_4b29d5f0f80229": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bfdb9af0-09ba-407a-851e-e240c6110dc6",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    },
+    "s_c18781c98f2e5f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ba9517c3-6426-417b-8a13-c06fe44b8223",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
