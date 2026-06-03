@@ -12,7 +12,8 @@ export async function renderMenu(model: MenuModel): Promise<void> {
   const items = await Promise.all(model.rows.map(toNativeItem));
   const menu = await Menu.new({ items });
   const tray = await TrayIcon.getById(TRAY_ID);
-  await tray?.setMenu(menu);
+  if (!tray) throw new Error(`tray "${TRAY_ID}" not found`);
+  await tray.setMenu(menu);
 }
 
 function toNativeItem(row: MenuRow): Promise<MenuItem | PredefinedMenuItem> {
