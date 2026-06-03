@@ -44,6 +44,13 @@ Skill's folder. Commits touching only unrelated files in the same repo don't
 count.
 _Avoid_: repo commit, upstream commit.
 
+**Poll Cycle**:
+One pass of the background loop: a `poll-tick` triggers a Manifest read, a
+rebuild of the Watched Repos, the GitHub poll, per-Skill classification, and a
+tray re-render. Holds nothing between cycles but the app-private cache and
+snapshot; resolves to exactly one **Poll Outcome**.
+_Avoid_: scan, refresh, sync.
+
 ### Freshness states
 
 The poll classifies each Skill against its Source Repo's branch HEAD into exactly
@@ -69,6 +76,30 @@ typically local edits, or installed from somewhere other than this branch.
 **Error**:
 The Source Repo or folder couldn't be polled (rate limit, network, 5xx). A
 transient unknown, distinct from the definitive Removed/Diverged.
+
+### Poll outcome (app-level)
+
+What a whole **Poll Cycle** resolves to — distinct from the **Freshness states**,
+which classify individual Skills *within* a successful poll. A total GitHub
+outage is not an outcome here: it surfaces as every Skill carrying the per-Skill
+**Error** state inside an otherwise-**Installed** poll.
+
+**Installed**:
+The Manifest yielded watched Skills and the poll produced their statuses; the
+tray shows the Skill list (each Skill carrying one Freshness state).
+
+**Nothing installed**:
+No watched Skills — the Manifest is absent, empty, or names no GitHub Skills. A
+clean empty state, never an error.
+
+**No token**:
+No GitHub token is available, so the cycle prompts to add one instead of polling.
+(A later degrade may poll unauthenticated instead — ADR-0006.)
+_Avoid_: unauthenticated, logged-out.
+
+**Malformed**:
+The Manifest is present but unparseable or wrong-shaped — surfaced as its own
+state, not a crash.
 
 ## Retired terms (skill-pulse v1 → skill-drift)
 

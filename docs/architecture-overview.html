@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>skill-drift — architecture, from the helicopter</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1c2330; --line: #30363d;
+    --ink: #e6edf3; --dim: #8b949e; --rust: #d98b4a; --ts: #3b82c4;
+    --ok: #3fb950; --warn: #d29922; --bad: #f85149; --accent: #a371f7;
+    --built: #2ea043; --plan: #6e7681;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.6 -apple-system, "SF Pro Text", system-ui, sans-serif;
+    padding: 32px 20px 80px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 30px; margin: 0 0 4px; letter-spacing: -0.5px; }
+  h2 {
+    font-size: 21px; margin: 48px 0 14px; padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+  .lede { color: var(--dim); margin: 0 0 8px; }
+  code { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 0.88em;
+    background: #ffffff10; padding: 1px 5px; border-radius: 4px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 20px; margin: 14px 0; }
+  .muted { color: var(--dim); }
+  .small { font-size: 13px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+
+  /* boxes in diagrams */
+  .box { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--panel2); }
+  .box .t { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .box .d { font-size: 12.5px; color: var(--dim); }
+  .ts-b { border-color: #2c5b85; box-shadow: inset 3px 0 0 var(--ts); }
+  .rust-b { border-color: #6b4a28; box-shadow: inset 3px 0 0 var(--rust); }
+  .ts-tag { color: var(--ts); font-weight: 700; }
+  .rust-tag { color: var(--rust); font-weight: 700; }
+
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; margin: 6px 0 0; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin-top: 8px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; }
+  .tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+  .b-built { background: #1c3a26; color: var(--built); border: 1px solid #2ea04355; }
+  .b-plan  { background: #21262d; color: var(--plan);  border: 1px solid #6e768155; }
+
+  .flow { counter-reset: step; }
+  .flow .step { display: grid; grid-template-columns: 34px 1fr; gap: 12px; margin: 10px 0; align-items: start; }
+  .flow .num { counter-increment: step; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--accent); color: #0d1117; font-weight: 800; display: grid; place-items: center; font-size: 14px; }
+  .flow .num::before { content: counter(step); }
+  .flow .who { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  svg { display: block; max-width: 100%; height: auto; }
+  .state-ok { color: var(--ok); } .state-warn { color: var(--warn); } .state-bad { color: var(--bad); }
+  .note { border-left: 3px solid var(--accent); padding: 6px 14px; margin: 14px 0; color: var(--dim); font-size: 13.5px; }
+  .arrow-lbl { font-size: 11px; fill: var(--dim); font-family: "SF Mono", monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>skill-drift, from the helicopter</h1>
+  <p class="lede">A local macOS menu-bar app that flags when your installed Claude Code <b>Skills</b> have drifted <b>Behind</b> their GitHub repos. This is the mental model — what Tauri is, how the pieces fit, and what's actually built vs. still on paper.</p>
+
+  <!-- ============ 1. WHAT IS TAURI ============ -->
+  <h2>1 · What even is Tauri?</h2>
+  <p>Two processes that talk over a bridge. That's the whole idea.</p>
+
+  <div class="card">
+  <svg viewBox="0 0 900 280" role="img" aria-label="Tauri = Rust process plus a webview, talking over a bridge">
+    <!-- Rust side -->
+    <rect x="20" y="40" width="350" height="200" rx="14" fill="#1c2330" stroke="#6b4a28" stroke-width="2"/>
+    <text x="40" y="70" fill="#d98b4a" font-weight="700" font-size="16">RUST process (the shell)</text>
+    <text x="40" y="94" fill="#8b949e" font-size="12.5">native binary · owns the OS</text>
+    <rect x="40" y="112" width="310" height="34" rx="7" fill="#0d1117" stroke="#30363d"/>
+    <text x="54" y="134" fill="#e6edf3" font-size="12.5">tray icon · windows · timers</text>
+    <rect x="40" y="154" width="310" height="34" rx="7" fill="#0d1117" stroke="#30363d"/>
+    <text x="54" y="176" fill="#e6edf3" font-size="12.5">Keychain · filesystem · network</text>
+    <text x="40" y="216" fill="#8b949e" font-size="12">src-tauri/  (Rust + Cargo)</text>
+
+    <!-- Webview side -->
+    <rect x="530" y="40" width="350" height="200" rx="14" fill="#1c2330" stroke="#2c5b85" stroke-width="2"/>
+    <text x="550" y="70" fill="#3b82c4" font-weight="700" font-size="16">WEBVIEW (the brain + UI)</text>
+    <text x="550" y="94" fill="#8b949e" font-size="12.5">a browser engine (WKWebView)</text>
+    <rect x="550" y="112" width="310" height="34" rx="7" fill="#0d1117" stroke="#30363d"/>
+    <text x="564" y="134" fill="#e6edf3" font-size="12.5">your React + TypeScript runs here</text>
+    <rect x="550" y="154" width="310" height="34" rx="7" fill="#0d1117" stroke="#30363d"/>
+    <text x="564" y="176" fill="#e6edf3" font-size="12.5">all the Behind logic lives here</text>
+    <text x="550" y="216" fill="#8b949e" font-size="12">src/  (TS, built by Vite/Deno)</text>
+
+    <!-- Bridge -->
+    <defs>
+      <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+        <path d="M0,0 L9,4.5 L0,9 z" fill="#a371f7"/>
+      </marker>
+    </defs>
+    <line x1="530" y1="120" x2="372" y2="120" stroke="#a371f7" stroke-width="2" marker-end="url(#ar)"/>
+    <text x="398" y="112" class="arrow-lbl" text-anchor="middle">invoke()  →  call a Rust command</text>
+    <line x1="370" y1="170" x2="528" y2="170" stroke="#a371f7" stroke-width="2" marker-end="url(#ar)"/>
+    <text x="450" y="190" class="arrow-lbl" text-anchor="middle">emit() / listen()  ←  events</text>
+  </svg>
+  <p class="small muted" style="margin-top:14px">The <b>webview</b> is just a headless browser. Same React you'd ship to the web — except it can phone the Rust side. Two doorways across the bridge: the webview <b>calls commands</b> with <code>invoke("name", args)</code>, and Rust <b>fires events</b> the webview <code>listen</code>s for. Nothing else crosses.</p>
+  </div>
+
+  <!-- ============ 2. THE BIG DECISION: C3 SEAM ============ -->
+  <h2>2 · The one big decision: keep the brain in TypeScript</h2>
+  <p>You're fluent in TS, new to Rust. So the architecture is drawn so <b>Rust never decides anything that matters</b>. Every "is this Skill Behind?" judgment happens in TS — where the engine already exists, fully tested, and where <i>you</i> can review it. Rust is hands, not brain. <span class="muted">(ADR-0002, "the C3 seam".)</span></p>
+
+  <div class="grid2">
+    <div class="box ts-b">
+      <div class="t"><span class="ts-tag">TypeScript</span> — owns all logic + view</div>
+      <div class="d" style="margin-top:8px">
+        • read &amp; interpret the Manifest<br>
+        • poll GitHub, compare hashes<br>
+        • classify Behind / Current / Removed / …<br>
+        • build the menu the user sees<br>
+        <span style="color:#3fb950">↳ has a real test suite (~880 lines)</span>
+      </div>
+    </div>
+    <div class="box rust-b">
+      <div class="t"><span class="rust-tag">Rust</span> — thin native shell only</div>
+      <div class="d" style="margin-top:8px">
+        • draw the tray icon + Behind badge<br>
+        • the poll <i>clock</i> (a repeating timer)<br>
+        • hand over the GitHub token (Keychain)<br>
+        • read the one Manifest file off disk<br>
+        <span style="color:#d98b4a">↳ never classifies, never decides</span>
+      </div>
+    </div>
+  </div>
+  <div class="note">Rule of thumb: if it's a <b>decision</b>, it's in TS. If it touches the <b>OS</b> (timer, Keychain, disk, tray), it's a narrow Rust command. The seam is a handful of wires, listed in §4.</div>
+
+  <!-- ============ 3. WHY A HIDDEN WEBVIEW ============ -->
+  <h2>3 · The trick that makes it work: a hidden webview</h2>
+  <p>Problem: the logic must run in the webview (§2), but the app has <b>no visible window</b> — it's a menu-bar app. Solution: create the window once at startup, <b>keep it hidden, never close it</b>. It becomes an invisible worker running the engine in the background.</p>
+
+  <div class="card">
+    <p style="margin-top:0">macOS would normally <b>suspend a hidden webview</b> after ~5 min (freezing its timers) to save battery — which would kill the background poll. So the window sets:</p>
+    <p style="text-align:center"><code>"visible": false &nbsp;·&nbsp; "backgroundThrottling": "disabled"</code></p>
+    <p class="small muted" style="margin-bottom:0">…in <code>tauri.conf.json</code>. That keeps the hidden webview awake. It needs macOS 14+ (below that the flag is ignored). <b>This single assumption holds the whole architecture up</b> — which is exactly why it was spiked first, before building anything on top. That spike is PR #7. <span class="muted">(ADR-0005.)</span></p>
+  </div>
+  <div class="note">Because the webview is always hidden, the actual UI can't be a web page. The Skill list is drawn as a <b>native macOS tray menu</b> (<code>NSMenu</code>) instead — TS builds the menu items, the OS draws them. <span class="muted">(ADR-0009.)</span></div>
+
+  <!-- ============ 4. THE INTENDED FLOW ============ -->
+  <h2>4 · The flow, I/O → presentation <span class="muted small">(the full intended pipeline)</span></h2>
+  <p class="muted small">One poll cycle, end to end. Colors show which side runs each step.</p>
+
+  <div class="card flow">
+    <div class="step"><div class="num"></div><div>
+      <div class="who rust-tag">Rust · clock</div>
+      A repeating timer (<code>tokio interval</code>, every <code>POLL_SECS</code>, default 60s) fires a <code>poll-tick</code> event across the bridge.
+    </div></div>
+    <div class="step"><div class="num"></div><div>
+      <div class="who ts-tag">TS · listens</div>
+      The hidden webview hears <code>poll-tick</code> and starts a cycle. (It also polls once on mount, to cover the startup race where the tick beats the listener.)
+    </div></div>
+    <div class="step"><div class="num"></div><div>
+      <div class="who rust-tag">Rust → TS · the inputs</div>
+      TS asks Rust for two things it can't reach itself: the <b>Manifest</b> (<code>read_manifest</code> → <code>~/.agents/.skill-lock.json</code>) and the <b>GitHub token</b> (<code>get_token</code> → Keychain, else <code>gh auth token</code>, else none → the <i>No token</i> outcome — prompt to add one, no poll; unauth degrade deferred, ADR-0010).
+    </div></div>
+    <div class="step"><div class="num"></div><div>
+      <div class="who ts-tag">TS · derive the work-list</div>
+      <code>deriveWatchedRepos()</code> groups the Manifest's Skills by <b>Source Repo</b>. One repo + its installed Skills = one <b>Watched Repo</b>, rebuilt fresh each cycle.
+    </div></div>
+    <div class="step"><div class="num"></div><div>
+      <div class="who ts-tag">TS · poll + classify</div>
+      <code>assembleSkillStatuses()</code> fetches each repo's branch HEAD, then for every Skill compares its installed <b>folder-tree hash</b> against GitHub and assigns one state (see §5). A <b>baseline cache</b> avoids re-walking history.
+    </div></div>
+    <div class="step"><div class="num"></div><div>
+      <div class="who ts-tag">TS · cache the result</div>
+      Results + resolved baselines are written to the app-private <b>store</b> (JSON on disk) so the menu can paint instantly next open. Pure scratch — losing it costs one poll, never data. <span class="muted">(ADR-0008.)</span>
+    </div></div>
+    <div class="step"><div class="num"></div><div>
+      <div class="who ts-tag">TS → Rust · present</div>
+      TS rebuilds the native tray <b>menu</b> from the statuses and calls <code>set_badge</code> with the Behind count. The tray title shows the badge; the menu lists each Skill (<code>git-helper · 3 behind</code>).
+    </div></div>
+  </div>
+
+  <details class="card">
+    <summary style="cursor:pointer;font-weight:700">The narrow wires across the seam</summary>
+    <table>
+      <tr><th>Wire</th><th>Direction</th><th>Carries</th></tr>
+      <tr><td><code>poll-tick</code></td><td>Rust → TS (event)</td><td>"time to poll"</td></tr>
+      <tr><td><code>read_manifest</code></td><td>TS → Rust (command)</td><td>raw Manifest file contents (TS parses)</td></tr>
+      <tr><td><code>get_token</code> / <code>set_token</code> / <code>delete_token</code></td><td>TS → Rust (command)</td><td>GitHub token bytes from/to Keychain</td></tr>
+      <tr><td><code>set_badge</code></td><td>TS → Rust (command)</td><td>the Behind count to show on the tray</td></tr>
+      <tr><td>menu (<code>@tauri-apps/api/menu</code>)</td><td>TS → native</td><td>the rebuilt Skill list</td></tr>
+    </table>
+    <p class="small muted">Notice: Rust hands over <b>bytes and triggers</b>. It never looks at a hash or counts a commit.</p>
+  </details>
+
+  <!-- ============ 5. CLASSIFICATION ============ -->
+  <h2>5 · How "Behind" is decided</h2>
+  <p>The Manifest stores each Skill's <b>folder-tree hash</b> at install time — a fingerprint of the folder's <i>contents</i>, <b>not</b> a commit SHA <span class="muted">(verified: <code>/git/trees/{hash}</code> resolves, <code>/commits/{hash}</code> 404s — ADR-0003)</span>. So comparison is folder-content vs. folder-content, and the count is in <b>Watched Commits</b> — only commits that actually touched that Skill's folder.</p>
+
+  <div class="card">
+  <svg viewBox="0 0 900 300" role="img" aria-label="decision tree for a Skill's freshness state">
+    <defs>
+      <marker id="ar2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8b949e"/></marker>
+    </defs>
+    <!-- root -->
+    <rect x="330" y="14" width="240" height="40" rx="8" fill="#1c2330" stroke="#a371f7"/>
+    <text x="450" y="39" fill="#e6edf3" text-anchor="middle" font-size="13">poll HEAD of the branch</text>
+
+    <!-- Q1 -->
+    <rect x="320" y="84" width="260" height="40" rx="8" fill="#161b22" stroke="#30363d"/>
+    <text x="450" y="109" fill="#e6edf3" text-anchor="middle" font-size="12.5">folder still exists at HEAD?</text>
+    <line x1="450" y1="54" x2="450" y2="82" stroke="#8b949e" stroke-width="1.5" marker-end="url(#ar2)"/>
+
+    <!-- Removed branch -->
+    <rect x="650" y="84" width="170" height="40" rx="8" fill="#2a1416" stroke="#f85149"/>
+    <text x="735" y="109" fill="#f85149" text-anchor="middle" font-size="12.5" font-weight="700">Removed</text>
+    <line x1="580" y1="104" x2="648" y2="104" stroke="#8b949e" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <text x="614" y="98" class="arrow-lbl">no</text>
+
+    <!-- Q2 -->
+    <rect x="300" y="150" width="300" height="40" rx="8" fill="#161b22" stroke="#30363d"/>
+    <text x="450" y="175" fill="#e6edf3" text-anchor="middle" font-size="12.5">HEAD folder hash == installed hash?</text>
+    <line x1="450" y1="124" x2="450" y2="148" stroke="#8b949e" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <text x="462" y="142" class="arrow-lbl">yes</text>
+
+    <!-- Current -->
+    <rect x="650" y="150" width="170" height="40" rx="8" fill="#10260f" stroke="#3fb950"/>
+    <text x="735" y="175" fill="#3fb950" text-anchor="middle" font-size="12.5" font-weight="700">Current</text>
+    <line x1="600" y1="170" x2="648" y2="170" stroke="#8b949e" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <text x="624" y="164" class="arrow-lbl">yes</text>
+
+    <!-- Q3 -->
+    <rect x="280" y="216" width="340" height="40" rx="8" fill="#161b22" stroke="#30363d"/>
+    <text x="450" y="241" fill="#e6edf3" text-anchor="middle" font-size="12.5">installed hash found in folder's history?</text>
+    <line x1="450" y1="190" x2="450" y2="214" stroke="#8b949e" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <text x="462" y="208" class="arrow-lbl">no</text>
+
+    <!-- Behind -->
+    <rect x="60" y="216" width="190" height="40" rx="8" fill="#2a2410" stroke="#d29922"/>
+    <text x="155" y="236" fill="#d29922" text-anchor="middle" font-size="12.5" font-weight="700">Behind by N</text>
+    <text x="155" y="251" fill="#8b949e" text-anchor="middle" font-size="10">N = Watched Commits since baseline</text>
+    <line x1="280" y1="236" x2="252" y2="236" stroke="#8b949e" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <text x="266" y="230" class="arrow-lbl">yes</text>
+
+    <!-- Diverged -->
+    <rect x="650" y="216" width="170" height="40" rx="8" fill="#251a2e" stroke="#a371f7"/>
+    <text x="735" y="241" fill="#a371f7" text-anchor="middle" font-size="12.5" font-weight="700">Diverged</text>
+    <line x1="620" y1="236" x2="648" y2="236" stroke="#8b949e" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <text x="634" y="230" class="arrow-lbl">no</text>
+
+    <text x="450" y="292" fill="#8b949e" text-anchor="middle" font-size="11">…and if any GitHub fetch fails (rate limit / network / 5xx) → <tspan fill="#f85149" font-weight="700">Error</tspan> (a transient unknown, not a verdict)</text>
+  </svg>
+  </div>
+  <p class="small muted">"Behind by N" is located by walking the folder's commit history to find the commit that produced the installed hash (the <b>baseline</b>), then counting Watched Commits from there to HEAD. That walk is the expensive bit — so its result is cached, keyed by the immutable hash. <span class="muted">(ADR-0004.)</span></p>
+
+  <!-- ============ 6. BUILT VS PLANNED ============ -->
+  <h2>6 · What's actually built — vs. designed on paper</h2>
+  <p>Honest status. PR #7 just merged. <b>Two</b> things exist in code; the rest is decided (ADRs written) but not yet wired.</p>
+
+  <table>
+    <tr><th>Piece</th><th>Status</th><th>Where / note</th></tr>
+    <tr><td><b>The TS engine</b> — Manifest read, GitHub client, Behind classify</td><td><span class="tag b-built">BUILT &amp; TESTED</span></td><td><code>src/engine/</code> · ~880 lines of tests. The brain from §2/§5 is done & ported from v1.</td></tr>
+    <tr><td><b>The background-poll spike</b> — Rust clock emits <code>poll-tick</code>; hidden webview wakes, fetches a commit, logs it back</td><td><span class="tag b-built">BUILT (spike)</span></td><td><code>src-tauri/src/lib.rs</code> + <code>src/App.tsx</code>. Proves §3's load-bearing assumption holds through sleep &amp; throttling. <b>This is PR #7.</b></td></tr>
+    <tr><td>Tray icon + Behind badge (<code>set_badge</code>)</td><td><span class="tag b-plan">PLANNED</span></td><td>ADR-0005/0009 — not in <code>lib.rs</code> yet</td></tr>
+    <tr><td>Native tray menu UI</td><td><span class="tag b-plan">PLANNED</span></td><td>ADR-0009</td></tr>
+    <tr><td>Keychain token (<code>get/set/delete_token</code>)</td><td><span class="tag b-plan">PLANNED</span></td><td>ADR-0006 — no keyring dep in <code>Cargo.toml</code> yet</td></tr>
+    <tr><td><code>read_manifest</code> command</td><td><span class="tag b-plan">PLANNED</span></td><td>ADR-0007</td></tr>
+    <tr><td>Store-backed baseline cache + snapshot</td><td><span class="tag b-plan">PLANNED</span></td><td>ADR-0008</td></tr>
+    <tr><td>Wiring the engine into the live poll (steps 3–7 of §4)</td><td><span class="tag b-plan">PLANNED</span></td><td>Today <code>App.tsx</code> just fetches one repo's latest commit as a spike harness — the real <code>assembleSkillStatuses</code> isn't called yet.</td></tr>
+  </table>
+
+  <div class="note" style="border-color:#2ea043">
+    <b>So where are we?</b> The hard <span class="ts-tag">thinking</span> (the engine) is done and trustworthy. The riskiest <span class="rust-tag">native</span> bet (a hidden webview that polls forever) is now proven. What remains is mostly <i>plumbing the two together</i> behind the narrow Rust commands the ADRs already specify — lower-risk, well-mapped work.
+  </div>
+
+  <!-- ============ 7. FILE MAP ============ -->
+  <h2>7 · Where things live</h2>
+  <table>
+    <tr><th>Path</th><th>What</th></tr>
+    <tr><td><code>src/engine/manifest.ts</code></td><td>Manifest shape · <code>deriveWatchedRepos</code> · <code>parseSource</code></td></tr>
+    <tr><td><code>src/engine/github.ts</code></td><td>GitHub REST client — commit / folder-tree / path-commits fetchers (token injected, never read here)</td></tr>
+    <tr><td><code>src/engine/poll.ts</code></td><td>The classifier — <code>assembleSkillStatuses</code>, the §5 decision tree, baseline walk</td></tr>
+    <tr><td><code>src/App.tsx</code></td><td>Spike harness (will become the menu-building worker)</td></tr>
+    <tr><td><code>src-tauri/src/lib.rs</code></td><td>The Rust shell — today: the poll clock + a <code>log</code> command</td></tr>
+    <tr><td><code>src-tauri/tauri.conf.json</code></td><td>Window config — <code>visible:false</code>, <code>backgroundThrottling:disabled</code></td></tr>
+    <tr><td><code>CONTEXT.md</code></td><td>Domain glossary (Skill, Source Repo, Manifest, Behind, …)</td></tr>
+    <tr><td><code>docs/adr/</code></td><td>The 10 decisions behind every shape above</td></tr>
+  </table>
+
+  <p class="small muted" style="margin-top:40px">Generated as a learning aid · disposable — <code>git rm</code> it when done.</p>
+
+</div>
+</body>
+</html>

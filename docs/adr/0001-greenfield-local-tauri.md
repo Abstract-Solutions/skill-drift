@@ -31,5 +31,5 @@ Status: accepted. Supersedes skill-pulse ADR-0001 and ADR-0002; guts ADR-0006.
 - No multi-device access — a local app, by design.
 - The GitHub token moves from a server env var to the user's Keychain (ADR-0002).
 - Mac-first but not Mac-locked: build/test macOS only, but use cross-platform
-  abstractions (the `keyring` crate, Tauri's tray API) so a later Linux/Windows
+  abstractions (`keyring-core`, Tauri's tray API) so a later Linux/Windows
   port stays cheap.
