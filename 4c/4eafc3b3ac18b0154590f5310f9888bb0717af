@@ -1,0 +1,34 @@
+src-tauri/Info.plist
+  s_2bbe982fefa150::t_2fa7b5d923e39c 5-6
+  s_2bbe982fefa150::t_152a1992d4962c 1-4,7-10
+src/platform.ts
+  s_2bbe982fefa150::t_f20ca89a1182dc 1-3,8
+  s_2bbe982fefa150::t_92d58f68c95bd3 4-7,9-27
+src-tauri/Cargo.toml
+  s_2bbe982fefa150::t_858d07b3c0610b 21
+src/engine/menu.ts
+  s_2bbe982fefa150::t_ef29ce67f03dc6 4-6,8
+  s_2bbe982fefa150::t_3e2623a169af07 1-3,7,9
+src-tauri/src/lib.rs
+  s_2bbe982fefa150::t_b5d5c2b08b9d15 1,5,14-16,19-26
+  s_2bbe982fefa150::t_c93112d5ac620e 3-4,12-13,17-18
+src/App.tsx
+  s_2bbe982fefa150::t_50dc340ddba340 1-3,6-12,16,23
+  s_2bbe982fefa150::t_c929cc3d03e62f 5,19-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "4c4eafc3b3ac18b0154590f5310f9888bb0717af",
+  "prompts": {},
+  "sessions": {
+    "s_2bbe982fefa150": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "270aa4b0-d9b0-464c-889b-59668efcc6ce",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": null
+    }
+  }
+}
