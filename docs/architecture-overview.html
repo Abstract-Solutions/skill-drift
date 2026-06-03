@@ -124,7 +124,7 @@
         • poll GitHub, compare hashes<br>
         • classify Behind / Current / Removed / …<br>
         • build the menu the user sees<br>
-        <span style="color:#3fb950">↳ has a real test suite (878 lines)</span>
+        <span style="color:#3fb950">↳ has a real test suite (~880 lines)</span>
       </div>
     </div>
     <div class="box rust-b">
@@ -265,7 +265,7 @@
 
   <table>
     <tr><th>Piece</th><th>Status</th><th>Where / note</th></tr>
-    <tr><td><b>The TS engine</b> — Manifest read, GitHub client, Behind classify</td><td><span class="tag b-built">BUILT &amp; TESTED</span></td><td><code>src/engine/</code> · 878 lines of tests. The brain from §2/§5 is done & ported from v1.</td></tr>
+    <tr><td><b>The TS engine</b> — Manifest read, GitHub client, Behind classify</td><td><span class="tag b-built">BUILT &amp; TESTED</span></td><td><code>src/engine/</code> · ~880 lines of tests. The brain from §2/§5 is done & ported from v1.</td></tr>
     <tr><td><b>The background-poll spike</b> — Rust clock emits <code>poll-tick</code>; hidden webview wakes, fetches a commit, logs it back</td><td><span class="tag b-built">BUILT (spike)</span></td><td><code>src-tauri/src/lib.rs</code> + <code>src/App.tsx</code>. Proves §3's load-bearing assumption holds through sleep &amp; throttling. <b>This is PR #7.</b></td></tr>
     <tr><td>Tray icon + Behind badge (<code>set_badge</code>)</td><td><span class="tag b-plan">PLANNED</span></td><td>ADR-0005/0009 — not in <code>lib.rs</code> yet</td></tr>
     <tr><td>Native tray menu UI</td><td><span class="tag b-plan">PLANNED</span></td><td>ADR-0009</td></tr>
@@ -293,7 +293,7 @@
     <tr><td><code>docs/adr/</code></td><td>The 10 decisions behind every shape above</td></tr>
   </table>
 
-  <p class="small muted" style="margin-top:40px">Generated as a learning aid · disposable — delete or <code>.gitignore</code> <code>docs/architecture-overview.html</code> when done.</p>
+  <p class="small muted" style="margin-top:40px">Generated as a learning aid · disposable — <code>git rm</code> it when done.</p>
 
 </div>
 </body>

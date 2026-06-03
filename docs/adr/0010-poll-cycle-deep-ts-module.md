@@ -24,7 +24,8 @@ non-polling short-circuit (the unauthenticated degrade is deferred — issue #5)
 
 - `PollOutcome = ok{ menu, behind, statuses } | no-manifest | no-token |
   malformed` — each carrying a built `MenuModel`. These are the per-poll **Poll
-  outcome** states (CONTEXT.md), distinct from the per-Skill **Freshness states**.
+  outcome** states (CONTEXT.md: Installed / Nothing installed / No token /
+  Malformed, respectively), distinct from the per-Skill **Freshness states**.
 - **No cycle-level `error` kind.** A GitHub outage surfaces as every Skill in
   per-Skill **Error** inside an `ok` poll; a thrown edge fault propagates to the
   scheduler, which keeps the last menu.
