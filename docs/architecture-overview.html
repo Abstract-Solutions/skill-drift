@@ -166,7 +166,7 @@
     </div></div>
     <div class="step"><div class="num"></div><div>
       <div class="who rust-tag">Rust → TS · the inputs</div>
-      TS asks Rust for two things it can't reach itself: the <b>Manifest</b> (<code>read_manifest</code> → <code>~/.agents/.skill-lock.json</code>) and the <b>GitHub token</b> (<code>get_token</code> → Keychain, else <code>gh auth token</code>, else none = slower unauth polling).
+      TS asks Rust for two things it can't reach itself: the <b>Manifest</b> (<code>read_manifest</code> → <code>~/.agents/.skill-lock.json</code>) and the <b>GitHub token</b> (<code>get_token</code> → Keychain, else <code>gh auth token</code>, else none → the <i>No token</i> outcome — prompt to add one, no poll; unauth degrade deferred, ADR-0010).
     </div></div>
     <div class="step"><div class="num"></div><div>
       <div class="who ts-tag">TS · derive the work-list</div>
@@ -290,7 +290,7 @@
     <tr><td><code>src-tauri/src/lib.rs</code></td><td>The Rust shell — today: the poll clock + a <code>log</code> command</td></tr>
     <tr><td><code>src-tauri/tauri.conf.json</code></td><td>Window config — <code>visible:false</code>, <code>backgroundThrottling:disabled</code></td></tr>
     <tr><td><code>CONTEXT.md</code></td><td>Domain glossary (Skill, Source Repo, Manifest, Behind, …)</td></tr>
-    <tr><td><code>docs/adr/</code></td><td>The 9 decisions behind every shape above</td></tr>
+    <tr><td><code>docs/adr/</code></td><td>The 10 decisions behind every shape above</td></tr>
   </table>
 
   <p class="small muted" style="margin-top:40px">Generated as a learning aid · disposable — delete or <code>.gitignore</code> <code>docs/architecture-overview.html</code> when done.</p>

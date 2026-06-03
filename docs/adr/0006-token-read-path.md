@@ -9,6 +9,11 @@ stays in TS, so ADR-0002 holds: Rust hands over bytes, never classifies. No toke
 degrades to unauthenticated polling (60 req/hr) behind a clear "add a token"
 state, not an error.
 
+**Revised by ADR-0010:** the cycle treats no-token as a distinct non-polling
+`PollOutcome` that prompts to add a token (no unauth poll); the degrade described
+here is deferred (issue #5) and would later flip `no-token` from a short-circuit
+back to poll-anyway.
+
 The Keychain is reached via `keyring-core` + `apple-native-keyring-store` (the old
 `keyring` crate demoted itself in v4 — "do not depend on this crate"), preserving
 the cross-platform abstraction ADR-0001 wanted: identical call sites, one `#[cfg]`

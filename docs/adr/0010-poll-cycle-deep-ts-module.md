@@ -17,7 +17,8 @@ them with the Rust commands (ADR-0007), the store (ADR-0008), and the menu API
 (ADR-0009). Tests inject fakes for the same ports — two adapters, one real seam.
 
 Status: accepted. Extends ADR-0002 (logic in TS) to the orchestration; the TS
-counterpart to ADR-0007's Rust commands.
+counterpart to ADR-0007's Rust commands; revises ADR-0006's no-token degrade to a
+non-polling short-circuit (the unauthenticated degrade is deferred — issue #5).
 
 ## Shape
 

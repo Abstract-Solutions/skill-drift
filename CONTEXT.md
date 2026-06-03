@@ -89,7 +89,7 @@ The Manifest yielded watched Skills and the poll produced their statuses; the
 tray shows the Skill list (each Skill carrying one Freshness state).
 
 **Nothing installed**:
-No watched Skills — the Manifest is absent, empty, or names no github Skills. A
+No watched Skills — the Manifest is absent, empty, or names no GitHub Skills. A
 clean empty state, never an error.
 
 **No token**:
