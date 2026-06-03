@@ -13,7 +13,10 @@ const PLACEHOLDER_MENU: MenuModel = {
 
 function App() {
   useEffect(() => {
-    void renderMenu(PLACEHOLDER_MENU);
+    // Hidden webview: an unhandled rejection would be invisible, so log it.
+    renderMenu(PLACEHOLDER_MENU).catch((err) => {
+      console.error("renderMenu failed", err);
+    });
   }, []);
 
   // Window stays hidden — this webview is the engine/view worker (ADR-0009); the
