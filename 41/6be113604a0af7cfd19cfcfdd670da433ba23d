@@ -1,0 +1,29 @@
+src-tauri/Cargo.toml
+  s_2bbe982fefa150::t_858d07b3c0610b 21
+src/engine/menu.ts
+  s_2bbe982fefa150::t_ef29ce67f03dc6 1-19
+src/platform.ts
+  s_2bbe982fefa150::t_92d58f68c95bd3 1-38
+src/App.tsx
+  s_2bbe982fefa150::t_50dc340ddba340 1-3,5-14,18,21-22,25
+src-tauri/src/lib.rs
+  s_2bbe982fefa150::t_b5d5c2b08b9d15 1,3-5,12-29
+src-tauri/Info.plist
+  s_2bbe982fefa150::t_152a1992d4962c 1-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "416be113604a0af7cfd19cfcfdd670da433ba23d",
+  "prompts": {},
+  "sessions": {
+    "s_2bbe982fefa150": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "270aa4b0-d9b0-464c-889b-59668efcc6ce",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
