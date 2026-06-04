@@ -1,0 +1,19 @@
+src/engine/schedule_test.ts
+  s_46ddb7ef2e4b0c::t_98bf1dca91396d 4-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "43841fc3e4c6b62cd5bad63f6e48337adac07c32",
+  "prompts": {},
+  "sessions": {
+    "s_46ddb7ef2e4b0c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "04e77657-3b26-4cef-8580-8b830ad49131",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
