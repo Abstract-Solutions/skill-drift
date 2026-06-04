@@ -19,7 +19,7 @@ pub fn run() {
             TrayIconBuilder::with_id(TRAY_ID)
                 .icon(
                     app.default_window_icon()
-                        .expect("default window icon embedded from tauri.conf.json bundle.icon")
+                        .ok_or("default window icon missing (tauri.conf.json bundle.icon)")?
                         .clone(),
                 )
                 .build(app)?;

@@ -24,5 +24,12 @@ function toNativeItem(row: MenuRow): Promise<MenuItem | PredefinedMenuItem> {
       return PredefinedMenuItem.new({ item: "Separator" });
     case "quit":
       return PredefinedMenuItem.new({ item: "Quit", text: row.label });
+    default:
+      // Exhaustiveness: a new MenuRow kind fails tsc here; guards a bad kind at runtime.
+      return assertNever(row);
   }
+}
+
+function assertNever(row: never): never {
+  throw new Error(`unknown menu row kind: ${(row as MenuRow).kind}`);
 }
