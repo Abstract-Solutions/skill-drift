@@ -1,8 +1,8 @@
 import { assertEquals } from "@std/assert";
 import { makePollScheduler } from "./schedule.ts";
 
-// Macrotask flush so the scheduler's .finally re-pump (a microtask chain) settles
-// before we assert.
+// Macrotask flush so the scheduler's finally-block re-pump (a microtask chain)
+// settles before we assert.
 const flush = () => new Promise<void>((r) => setTimeout(r, 0));
 
 // A run() whose every call hands back a promise the test settles by hand, so
