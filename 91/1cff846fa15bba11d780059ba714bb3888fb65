@@ -1,0 +1,31 @@
+src/engine/manifest_test.ts
+  s_b88c3df5323d00::t_1f4af3c665d166 74-78,84-90,96-99
+  s_b88c3df5323d00::t_50602b09cf16b7 79-83,91-95
+src/App.tsx
+  s_b88c3df5323d00::t_6f75afdbf94898 35-42
+  s_b88c3df5323d00::t_0700669fd824ec 5
+src/engine/manifest.ts
+  s_b88c3df5323d00::t_9961232acff364 37-38
+  s_b88c3df5323d00::t_b96187977e4a5e 63-66
+src/engine/menu_test.ts
+  s_b88c3df5323d00::t_d7351f48c8d7a6 3
+  s_b88c3df5323d00::t_52cad8c6e7552f 49-54
+src/engine/menu.ts
+  s_b88c3df5323d00::t_1588a4455549c1 27-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "911cff846fa15bba11d780059ba714bb3888fb65",
+  "prompts": {},
+  "sessions": {
+    "s_b88c3df5323d00": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5769a00d-c55a-44ad-bc85-aa08d1cb5158",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
