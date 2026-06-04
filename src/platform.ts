@@ -10,10 +10,13 @@ import type { MenuModel, MenuRow } from "./engine/menu.ts";
 // Shared with the Rust setup hook (TrayIconBuilder::with_id).
 export const TRAY_ID = "main";
 
-// Rust emits `poll-tick` on launch and on the poll cadence (ADR-0005). The tick
+// Shared with the Rust poll-clock (POLL_TICK_EVENT, emit in lib.rs).
+const POLL_TICK_EVENT = "poll-tick";
+
+// Rust emits poll-tick on launch and on the poll cadence (ADR-0005). The tick
 // is a bare signal (no payload), so cb takes no args. Returns the async unlisten.
 export function onPollTick(cb: () => void): Promise<UnlistenFn> {
-  return listen("poll-tick", () => cb());
+  return listen(POLL_TICK_EVENT, () => cb());
 }
 
 // Behind count → tray title via the Rust set_badge command (ADR-0005). 0 clears

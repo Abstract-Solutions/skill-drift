@@ -45,7 +45,7 @@ function App() {
     let stopped = false;
     onPollTick(() => {
       // Visible in the webview devtools — the "frontend receives it" signal (#3).
-      console.debug("poll-tick received");
+      console.info("poll-tick received");
       scheduler.trigger();
     })
       .then((fn) => {

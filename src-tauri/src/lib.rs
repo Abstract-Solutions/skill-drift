@@ -5,6 +5,10 @@ use tokio::time::{interval, Duration};
 // via TrayIcon.getById to attach the menu and is the target of set_badge.
 const TRAY_ID: &str = "main";
 
+// The launch + cadence signal the frontend listens for (POLL_TICK_EVENT in
+// src/platform.ts) to run a Poll Cycle.
+const POLL_TICK_EVENT: &str = "poll-tick";
+
 // Background poll cadence (ADR-0005). 30 min keeps Behind state ambiently fresh
 // without spending the GitHub rate budget: one request per Watched Repo every
 // 30 min stays far under the 5000 req/hr authenticated ceiling, and Skill repos
@@ -65,8 +69,8 @@ pub fn run() {
                 let mut ticker = interval(poll_interval());
                 loop {
                     ticker.tick().await;
-                    if let Err(e) = handle.emit("poll-tick", ()) {
-                        eprintln!("poll-tick emit failed: {e}");
+                    if let Err(e) = handle.emit(POLL_TICK_EVENT, ()) {
+                        eprintln!("{POLL_TICK_EVENT} emit failed: {e}");
                     }
                 }
             });
