@@ -1,22 +1,39 @@
 import { useEffect } from "react";
-import { renderMenu } from "./platform.ts";
-import type { MenuModel } from "./engine/menu.ts";
-
-// A static menu frame until the poll cycle builds one from real Skill status.
-const PLACEHOLDER_MENU: MenuModel = {
-  rows: [
-    { kind: "header", label: "skill-drift — no data yet" },
-    { kind: "separator" },
-    { kind: "quit", label: "Quit skill-drift" },
-  ],
-};
+import { runPollCycle } from "./engine/cycle.ts";
+import { makePollScheduler } from "./engine/schedule.ts";
+import { onPollTick, renderMenu, setBadge } from "./platform.ts";
 
 function App() {
   useEffect(() => {
-    // Hidden webview: an unhandled rejection would be invisible, so log it.
-    renderMenu(PLACEHOLDER_MENU).catch((err) => {
-      console.error("renderMenu failed", err);
+    let unlisten: (() => void) | undefined;
+    let unmounted = false;
+    const scheduler = makePollScheduler(async () => {
+      const outcome = await runPollCycle();
+      await renderMenu(outcome.menu);
+      await setBadge(outcome.behind);
     });
+
+    onPollTick(() => {
+      console.info("poll-tick received");
+      scheduler.trigger();
+    })
+      .then((stop) => {
+        if (unmounted) {
+          stop();
+          return;
+        }
+        unlisten = stop;
+      })
+      .catch((err) => {
+        console.error("onPollTick failed", err);
+      });
+
+    scheduler.trigger(); // mount poll, coalesced with launch tick if both happen
+
+    return () => {
+      unmounted = true;
+      unlisten?.();
+    };
   }, []);
 
   // Window stays hidden — this webview is the engine/view worker (ADR-0009); the

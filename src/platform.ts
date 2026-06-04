@@ -2,11 +2,22 @@
 // in src/ stays pure TS (ADR-0010).
 
 import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
+import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { TrayIcon } from "@tauri-apps/api/tray";
 import type { MenuModel, MenuRow } from "./engine/menu.ts";
 
 // Shared with the Rust setup hook (TrayIconBuilder::with_id).
 export const TRAY_ID = "main";
+const POLL_TICK_EVENT = "poll-tick";
+
+export function onPollTick(cb: () => void): Promise<UnlistenFn> {
+  return listen(POLL_TICK_EVENT, () => cb());
+}
+
+export function setBadge(count: number): Promise<void> {
+  return invoke("set_badge", { count });
+}
 
 export async function renderMenu(model: MenuModel): Promise<void> {
   const items = await Promise.all(model.rows.map(toNativeItem));
