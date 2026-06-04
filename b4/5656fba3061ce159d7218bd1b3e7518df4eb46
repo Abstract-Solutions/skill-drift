@@ -1,0 +1,19 @@
+.gitignore
+  s_f561e267fbee37::t_b24d1a930740bc 25-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "b45656fba3061ce159d7218bd1b3e7518df4eb46",
+  "prompts": {},
+  "sessions": {
+    "s_f561e267fbee37": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "392255d8-30e6-48a1-abf9-ab07d3670da5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
