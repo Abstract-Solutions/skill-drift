@@ -71,6 +71,32 @@ Deno.test("deriveWatchedRepos returns [] for an empty Manifest", () => {
   assertEquals(deriveWatchedRepos({ version: 1, skills: {} }), []);
 });
 
+Deno.test("deriveWatchedRepos drops a github entry missing a polled field", () => {
+  const manifest = {
+    version: 1,
+    skills: {
+      good: gh("owner/repo", "skills/good", "h1"),
+      incomplete: {
+        source: "owner/repo",
+        sourceType: "github",
+        skillPath: "x",
+      },
+    },
+  } as unknown as Manifest;
+
+  assertEquals(deriveWatchedRepos(manifest), [
+    {
+      source: "owner/repo",
+      branch: "main",
+      skills: [{
+        name: "good",
+        skillPath: "skills/good",
+        skillFolderHash: "h1",
+      }],
+    },
+  ]);
+});
+
 Deno.test("parseManifest accepts a well-formed Manifest", () => {
   const manifest: Manifest = {
     version: 1,

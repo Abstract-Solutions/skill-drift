@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { onPollTick, readManifest, renderMenu, setBadge } from "./platform.ts";
 import { makePollScheduler } from "./engine/schedule.ts";
 import { runPollCycle } from "./engine/cycle.ts";
+import { bootMenu } from "./engine/menu.ts";
 
 function App() {
   useEffect(() => {
@@ -29,6 +30,14 @@ function App() {
       await renderMenu(out.menu);
       // Only an `ok` poll has a Behind count; the other outcomes clear the badge.
       await setBadge(out.kind === "ok" ? out.behind : 0);
+    });
+
+    // A menu-bar-only app (Accessory, ADR-0009) is quittable only via the tray
+    // menu, and Rust builds the tray without one. Seed a boot frame so a Quit item
+    // exists even if the first cycle's edge faults before it renders; the cycle
+    // replaces it, and on a fault the scheduler keeps it as the last menu (ADR-0010).
+    renderMenu(bootMenu()).catch((err) => {
+      console.error("boot renderMenu failed", err);
     });
 
     // Mount poll covers the startup race where Rust's launch tick beats this

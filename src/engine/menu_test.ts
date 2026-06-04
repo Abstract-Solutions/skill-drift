@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert";
 import {
+  bootMenu,
   installedMenu,
   malformedMenu,
   type MenuModel,
@@ -45,7 +46,12 @@ Deno.test("nothingInstalledMenu and malformedMenu headline their state", () => {
   assertEquals(header(malformedMenu()), "skill-drift — manifest unreadable");
 });
 
-Deno.test("every outcome menu ends in Quit", () => {
+Deno.test("bootMenu headlines the starting state", () => {
+  assertEquals(header(bootMenu()), "skill-drift — starting…");
+});
+
+Deno.test("every menu frame ends in Quit", () => {
+  assertEquals(endsInQuit(bootMenu()), true);
   assertEquals(endsInQuit(installedMenu([repo("a")])), true);
   assertEquals(endsInQuit(nothingInstalledMenu()), true);
   assertEquals(endsInQuit(malformedMenu()), true);

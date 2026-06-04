@@ -24,6 +24,12 @@ function framedMenu(header: string): MenuModel {
   };
 }
 
+// Boot frame rendered before the first cycle so the menu-bar-only app is always
+// quittable — even if that cycle's edge faults before it can render (ADR-0010).
+export function bootMenu(): MenuModel {
+  return framedMenu("skill-drift — starting…");
+}
+
 /** Installed outcome: headline the watched-Skill count (CONTEXT.md). */
 export function installedMenu(repos: readonly WatchedRepo[]): MenuModel {
   const n = repos.reduce((sum, repo) => sum + repo.skills.length, 0);

@@ -34,7 +34,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 // Parses the Manifest's raw JSON behind a minimal shape guard (ADR-0010): the
 // value parses and its `skills` is an object → a Manifest, else null. The cycle
 // maps null to its malformed outcome (CONTEXT.md). Per-entry validation is
-// deliberately skipped — deriveWatchedRepos already drops anything it can't use.
+// deliberately skipped here — deriveWatchedRepos drops any entry it can't poll
+// (non-github, or missing source/path/hash).
 export function parseManifest(raw: string): Manifest | null {
   let value: unknown;
   try {
@@ -59,6 +60,10 @@ export function deriveWatchedRepos(manifest: Manifest): WatchedRepo[] {
   const bySource = new Map<string, WatchedRepo>();
   for (const [name, entry] of Object.entries(manifest.skills)) {
     if (entry.sourceType !== "github") continue;
+    // A github entry missing a polled field can't be watched — parseManifest's
+    // shape guard doesn't validate per-entry, so drop it here rather than push
+    // undefined into a WatchedRepo and break the #5/#6 baseline.
+    if (!entry.source || !entry.skillPath || !entry.skillFolderHash) continue;
     let repo = bySource.get(entry.source);
     if (!repo) {
       repo = { source: entry.source, branch: "main", skills: [] };
