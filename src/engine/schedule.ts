@@ -15,8 +15,8 @@ export function makePollScheduler(
     let task: Promise<unknown>;
     try {
       task = run();
-    } catch {
-      task = Promise.reject();
+    } catch (error) {
+      task = Promise.reject(error);
     }
 
     void task
