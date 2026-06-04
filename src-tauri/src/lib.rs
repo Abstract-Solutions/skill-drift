@@ -1,4 +1,4 @@
-use tauri::{async_runtime::spawn, tray::TrayIconBuilder, Emitter};
+use tauri::{async_runtime::spawn, tray::TrayIconBuilder, Emitter, Manager};
 use tokio::time::{interval, Duration};
 
 // Shared with the frontend (TRAY_ID in src/platform.ts), which looks the tray up
@@ -37,11 +37,37 @@ fn set_badge(app: tauri::AppHandle, count: u32) -> Result<(), String> {
     tray.set_title(title).map_err(|e| e.to_string())
 }
 
+// The Manifest's fixed location under the user's home (ADR-0007). Kept in Rust so
+// the path — not a general filesystem capability — is the webview's only reach.
+const MANIFEST_DIR: &str = ".agents";
+const MANIFEST_FILE: &str = ".skill-lock.json";
+
+// Reads the Manifest (~/.agents/.skill-lock.json) for the frontend (ADR-0007):
+// the webview's one filesystem reach is this command, the path fixed here rather
+// than granted as an fs plugin. Ok(None) when the file or its directory is absent
+// — the clean "nothing installed" signal the TS cycle maps to no-manifest;
+// Ok(Some(contents)) otherwise, with all parsing left to TS. Any other I/O error
+// (e.g. permissions, non-UTF-8 contents) surfaces as Err for TS to handle.
+#[tauri::command]
+fn read_manifest(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let path = app
+        .path()
+        .home_dir()
+        .map_err(|e| e.to_string())?
+        .join(MANIFEST_DIR)
+        .join(MANIFEST_FILE);
+    match std::fs::read_to_string(&path) {
+        Ok(contents) => Ok(Some(contents)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![set_badge])
+        .invoke_handler(tauri::generate_handler![set_badge, read_manifest])
         .setup(|app| {
             // Dock-less menu-bar app: no Dock icon, no app menu (ADR-0005).
             // LSUIElement covers the bundled app; this covers tauri dev.

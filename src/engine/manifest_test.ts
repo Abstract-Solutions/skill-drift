@@ -1,5 +1,9 @@
 import { assertEquals } from "@std/assert";
-import { deriveWatchedRepos, type Manifest } from "./manifest.ts";
+import {
+  deriveWatchedRepos,
+  type Manifest,
+  parseManifest,
+} from "./manifest.ts";
 
 const gh = (source: string, skillPath: string, skillFolderHash: string) => ({
   source,
@@ -65,4 +69,65 @@ Deno.test("deriveWatchedRepos sorts repos by source", () => {
 
 Deno.test("deriveWatchedRepos returns [] for an empty Manifest", () => {
   assertEquals(deriveWatchedRepos({ version: 1, skills: {} }), []);
+});
+
+Deno.test("deriveWatchedRepos drops a github entry missing a polled field", () => {
+  const manifest = {
+    version: 1,
+    skills: {
+      good: gh("owner/repo", "skills/good", "h1"),
+      incomplete: {
+        source: "owner/repo",
+        sourceType: "github",
+        skillPath: "x",
+      },
+    },
+  } as unknown as Manifest;
+
+  assertEquals(deriveWatchedRepos(manifest), [
+    {
+      source: "owner/repo",
+      branch: "main",
+      skills: [{
+        name: "good",
+        skillPath: "skills/good",
+        skillFolderHash: "h1",
+      }],
+    },
+  ]);
+});
+
+Deno.test("parseManifest accepts a well-formed Manifest", () => {
+  const manifest: Manifest = {
+    version: 1,
+    skills: { a: gh("owner/repo", "skills/a", "h1") },
+  };
+  assertEquals(parseManifest(JSON.stringify(manifest)), manifest);
+});
+
+Deno.test("parseManifest accepts an empty skills map", () => {
+  assertEquals(parseManifest('{"version":1,"skills":{}}'), {
+    version: 1,
+    skills: {},
+  });
+});
+
+Deno.test("parseManifest returns null for invalid JSON", () => {
+  assertEquals(parseManifest("{ not json"), null);
+});
+
+Deno.test("parseManifest returns null when skills is missing", () => {
+  assertEquals(parseManifest('{"version":1}'), null);
+});
+
+Deno.test("parseManifest returns null when skills is an array", () => {
+  assertEquals(parseManifest('{"version":1,"skills":[]}'), null);
+});
+
+Deno.test("parseManifest returns null when skills is not an object", () => {
+  assertEquals(parseManifest('{"version":1,"skills":"nope"}'), null);
+});
+
+Deno.test("parseManifest returns null for a non-object top value", () => {
+  assertEquals(parseManifest("42"), null);
 });
