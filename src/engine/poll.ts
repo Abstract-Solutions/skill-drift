@@ -170,8 +170,9 @@ async function skillState(
     if (!res.ok) {
       // 404 = parent dir absent at this ref (definitive). Other failures are
       // transient (rate limit / 5xx / network) — surface them so the walk aborts
-      // instead of negative-caching a wrong "diverged".
-      if (res.error.startsWith("GitHub API 404")) {
+      // instead of negative-caching a wrong "diverged". Match the typed status, not
+      // the error text (human-facing, free to change).
+      if (res.status === 404) {
         return { ok: true, sha: null };
       }
       return { ok: false, error: res.error };

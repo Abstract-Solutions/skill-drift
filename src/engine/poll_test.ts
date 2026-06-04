@@ -324,7 +324,7 @@ Deno.test("assembleSkillStatuses surfaces a transient walk failure as error with
     Promise.resolve(
       ref === "HEAD"
         ? { ok: true, entries: [dir("alpha", "H3")] }
-        : { ok: false, error: "GitHub API 502 Bad Gateway" },
+        : { ok: false, status: 502, error: "GitHub API 502 Bad Gateway" },
     );
   const { fetchPathCommits } = fakeCommits([c("c1")]);
   const { cache, store, k } = memCache();
@@ -351,7 +351,7 @@ Deno.test("assembleSkillStatuses treats a 404 during the walk as folder-absent",
     Promise.resolve(
       ref === "HEAD"
         ? { ok: true, entries: [dir("alpha", "H3")] }
-        : { ok: false, error: "GitHub API 404 Not Found" },
+        : { ok: false, status: 404, error: "GitHub API 404 Not Found" },
     );
   const { fetchPathCommits } = fakeCommits([c("c1")]);
   const { cache, store, k } = memCache();
