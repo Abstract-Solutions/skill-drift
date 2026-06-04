@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Agent skills (installed via `npx skills`; reproducible from skills-lock.json)
+.claude/skills/
+.claude/settings.local.json
+.agents/
