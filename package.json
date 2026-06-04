@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsgo && vite build",
+    "typecheck": "tsgo",
     "preview": "vite preview",
     "tauri": "tauri"
   },
@@ -20,6 +21,7 @@
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
     "typescript": "~5.8.3",
+    "@typescript/native-preview": "^7.0.0-dev.20260421.2",
     "vite": "^7.0.4",
     "@tauri-apps/cli": "^2"
   }
