@@ -17,9 +17,11 @@ export function onPollTick(cb: () => void): Promise<UnlistenFn> {
 }
 
 // Behind count → tray title via the Rust set_badge command (ADR-0005). 0 clears
-// it; a menu-bar app has no native badge, so the count is the title text.
+// it; a menu-bar app has no native badge, so the count is the title text. Rust
+// takes u32, so clamp to a non-negative integer — a float or negative would fail
+// Tauri's deserialiser at the IPC boundary.
 export function setBadge(count: number): Promise<void> {
-  return invoke("set_badge", { count });
+  return invoke("set_badge", { count: Math.max(0, Math.trunc(count)) });
 }
 
 export async function renderMenu(model: MenuModel): Promise<void> {

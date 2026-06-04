@@ -38,12 +38,25 @@ function App() {
     // Mount poll covers the startup race where Rust's launch tick beats this
     // listener (events aren't buffered); the listener catches every tick after.
     scheduler.trigger();
-    const unlisten = onPollTick(() => {
+    // listen() resolves async but React cleanup is synchronous: capture the
+    // unlisten eagerly and handle either ordering, so no tick fires after
+    // teardown and a listen() failure can't surface as an unhandled rejection.
+    let off: (() => void) | undefined;
+    let stopped = false;
+    onPollTick(() => {
       // Visible in the webview devtools — the "frontend receives it" signal (#3).
       console.debug("poll-tick received");
       scheduler.trigger();
-    });
-    return () => void unlisten.then((off) => off());
+    })
+      .then((fn) => {
+        off = fn;
+        if (stopped) fn(); // unmounted before listen resolved
+      })
+      .catch((err) => console.error("onPollTick listen failed", err));
+    return () => {
+      stopped = true;
+      off?.();
+    };
   }, []);
 
   // Window stays hidden — this webview is the engine/view worker (ADR-0009); the

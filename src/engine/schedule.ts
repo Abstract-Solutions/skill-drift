@@ -11,35 +11,42 @@ export interface PollScheduler {
   trigger(): void;
 }
 
-export function makePollScheduler(run: () => Promise<unknown>): PollScheduler {
+export function makePollScheduler(
+  run: () => Promise<unknown>,
+  // Injected so tests capture failures without mutating global console state.
+  onError: (err: unknown) => void = (err) =>
+    console.error("poll cycle failed", err),
+): PollScheduler {
   let running = false;
   let pending = false;
 
-  const pump = () => {
+  const pump = async () => {
     if (running) {
       pending = true; // coalesce: one trailing run regardless of trigger count
       return;
     }
     running = true;
     pending = false;
-    // Start the leading run now (synchronously), normalising a synchronous throw
-    // into a rejection so the chain below handles both. A rejected cycle (a
-    // thrown edge fault) is logged, not swallowed; the scheduler keeps the last
-    // menu (ADR-0010) and still drains the trailing run, so one bad poll never
-    // wedges the clock.
-    let settled: Promise<unknown>;
     try {
-      settled = run();
+      // `await` invokes run() synchronously (so a second trigger sees running),
+      // and one try/catch handles both a synchronous throw and a rejection.
+      await run();
     } catch (err) {
-      settled = Promise.reject(err);
+      // A thrown edge fault is reported, not swallowed; the scheduler keeps the
+      // last menu (ADR-0010) and still drains the trailing run below, so one bad
+      // poll never wedges the clock.
+      onError(err);
+    } finally {
+      running = false;
+      if (pending) void pump(); // drain the coalesced trailing run
     }
-    settled
-      .catch((err) => console.error("poll cycle failed", err))
-      .finally(() => {
-        running = false;
-        if (pending) pump();
-      });
   };
 
-  return { trigger: pump };
+  // trigger is fire-and-forget: callers (mount poll, poll-tick listener) signal
+  // "go" and don't await. pump() owns its own errors, so the float is safe.
+  return {
+    trigger() {
+      void pump();
+    },
+  };
 }

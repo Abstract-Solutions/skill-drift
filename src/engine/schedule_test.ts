@@ -105,28 +105,20 @@ Deno.test("makePollScheduler drains the trailing run even if the leading run rej
       resolvers.push((ok) => (ok ? resolve() : reject(new Error("boom"))));
     });
   };
-  const s = makePollScheduler(run);
+  const errors: unknown[] = [];
+  const s = makePollScheduler(run, (err) => errors.push(err));
 
-  const realError = console.error;
-  const captured: unknown[][] = [];
-  console.error = (...args) => {
-    captured.push(args);
-  };
-  try {
-    s.trigger(); // leading
-    s.trigger(); // trailing queued
+  s.trigger(); // leading
+  s.trigger(); // trailing queued
 
-    const rejectLeading = resolvers.shift();
-    if (rejectLeading) rejectLeading(false);
-    await flush(); // trailing must still run despite the rejection
-    assertEquals(starts, 2);
+  const rejectLeading = resolvers.shift();
+  if (rejectLeading) rejectLeading(false);
+  await flush(); // trailing must still run despite the rejection
+  assertEquals(starts, 2);
 
-    const resolveTrailing = resolvers.shift();
-    if (resolveTrailing) resolveTrailing(true);
-    await flush();
-  } finally {
-    console.error = realError;
-  }
+  const resolveTrailing = resolvers.shift();
+  if (resolveTrailing) resolveTrailing(true);
+  await flush();
 
-  assertEquals(captured.length, 1); // logged, not silently swallowed
+  assertEquals(errors.length, 1); // reported via injected onError, not swallowed
 });
