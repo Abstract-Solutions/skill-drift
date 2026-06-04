@@ -1,38 +1,34 @@
 import { useEffect } from "react";
-import { onPollTick, renderMenu, setBadge } from "./platform.ts";
+import { onPollTick, readManifest, renderMenu, setBadge } from "./platform.ts";
 import { makePollScheduler } from "./engine/schedule.ts";
 import { runPollCycle } from "./engine/cycle.ts";
-import type { MenuModel } from "./engine/menu.ts";
-
-// A static menu frame until the poll cycle builds one from real Skill status.
-const PLACEHOLDER_MENU: MenuModel = {
-  rows: [
-    { kind: "header", label: "skill-drift — no data yet" },
-    { kind: "separator" },
-    { kind: "quit", label: "Quit skill-drift" },
-  ],
-};
 
 function App() {
   useEffect(() => {
-    // Hidden webview: an unhandled rejection would be invisible, so log it.
-    renderMenu(PLACEHOLDER_MENU).catch((err) => {
-      console.error("renderMenu failed", err);
-    });
-
     // The Poll Cycle, coalesced (ADR-0010): the mount poll below and the Rust
     // poll-tick both drive it, and the interval can tick mid-cycle — the
-    // scheduler keeps at most one run in flight plus one trailing.
-    let ticks = 0;
+    // scheduler keeps at most one run in flight plus one trailing. Each run reads
+    // the Manifest, derives the Watched Repos, and returns a PollOutcome the view
+    // renders (menu + badge); the cycle's menu replaces the old mount placeholder.
     const scheduler = makePollScheduler(async () => {
-      // Stub this slice (#3): proves the cycle seam compiles and awaits. The
-      // next slice returns a real PollOutcome whose `behind` feeds setBadge.
-      await runPollCycle();
-      // Tracer bullet: badge the running tick count so the whole pipe is visible
-      // end to end (poll-tick → scheduler → setBadge → tray title). Swapped for
-      // setBadge(out.behind) once runPollCycle returns real Behind counts.
-      ticks += 1;
-      await setBadge(ticks);
+      const out = await runPollCycle({ readManifest });
+      // Hidden webview: an unhandled rejection would be invisible, and these are
+      // the visible #4 signals — the derived Watched Repos, or the empty/error
+      // outcome — in the webview devtools.
+      switch (out.kind) {
+        case "ok":
+          console.info("watched repos", out.repos);
+          break;
+        case "no-manifest":
+          console.info("nothing installed");
+          break;
+        case "malformed":
+          console.error("manifest malformed");
+          break;
+      }
+      await renderMenu(out.menu);
+      // Only an `ok` poll has a Behind count; the other outcomes clear the badge.
+      await setBadge(out.kind === "ok" ? out.behind : 0);
     });
 
     // Mount poll covers the startup race where Rust's launch tick beats this

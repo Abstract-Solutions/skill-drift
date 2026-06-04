@@ -27,6 +27,14 @@ export function setBadge(count: number): Promise<void> {
   return invoke("set_badge", { count: Math.max(0, Math.trunc(count)) });
 }
 
+// Reads the Manifest via the Rust read_manifest command (ADR-0007) — the
+// webview's only filesystem reach, the path fixed in Rust. Resolves to the raw
+// contents, or null when the file is absent. All parsing stays in TS (the cycle's
+// parseManifest); Rust's Option<String> maps to string | null at the IPC edge.
+export function readManifest(): Promise<string | null> {
+  return invoke<string | null>("read_manifest");
+}
+
 export async function renderMenu(model: MenuModel): Promise<void> {
   const items = await Promise.all(model.rows.map(toNativeItem));
   const menu = await Menu.new({ items });

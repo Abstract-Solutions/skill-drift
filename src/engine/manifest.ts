@@ -27,6 +27,26 @@ export interface WatchedRepo {
   skills: { name: string; skillPath: string; skillFolderHash: string }[];
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// Parses the Manifest's raw JSON behind a minimal shape guard (ADR-0010): the
+// value parses and its `skills` is an object → a Manifest, else null. The cycle
+// maps null to its malformed outcome (CONTEXT.md). Per-entry validation is
+// deliberately skipped — deriveWatchedRepos already drops anything it can't use.
+export function parseManifest(raw: string): Manifest | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!isRecord(value) || !isRecord(value.skills)) return null;
+  // The guard checks shape, not every field; the minimal contract (ADR-0010).
+  return value as unknown as Manifest;
+}
+
 /** Split an "owner/repo" source into its parts. */
 export function parseSource(source: string): { owner: string; repo: string } {
   const [owner, repo] = source.split("/");
