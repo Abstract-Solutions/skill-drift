@@ -1,0 +1,26 @@
+src/engine/schedule_test.ts
+  s_46ddb7ef2e4b0c::t_28989cbc2a55ab 108-109,111-123
+src/App.tsx
+  s_46ddb7ef2e4b0c::t_175249edf4f8b0 41-46,50-59
+src/platform.ts
+  s_46ddb7ef2e4b0c::t_810fcc4c32e4b2 20-22,24
+src/engine/schedule.ts
+  s_46ddb7ef2e4b0c::t_d980e4350ca7bf 23,31-33,35-41,45-51
+  s_46ddb7ef2e4b0c::t_463f326d2fa612 14-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "3dd4c59fd3b963569cfafcc8a484fbe85805eef6",
+  "prompts": {},
+  "sessions": {
+    "s_46ddb7ef2e4b0c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "04e77657-3b26-4cef-8580-8b830ad49131",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
