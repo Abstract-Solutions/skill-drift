@@ -1,0 +1,41 @@
+src/platform.ts
+  s_b88c3df5323d00::t_4cbf1193a3ac42 30-37
+src/engine/manifest.ts
+  s_b88c3df5323d00::t_30ae48604cc68c 46-47
+  s_b88c3df5323d00::t_065939ee850f26 30-45,48-49
+src-tauri/src/lib.rs
+  s_b88c3df5323d00::t_f47eb1aa4a2a52 70
+  s_b88c3df5323d00::t_23c71737356036 1
+  s_b88c3df5323d00::t_e80958498fdbcf 40-65
+src/engine/menu.ts
+  s_b88c3df5323d00::t_079b3a5daa666f 4-5,12-41
+src/App.tsx
+  s_b88c3df5323d00::t_f836ecc1418afd 2,10-12,14-31
+src/engine/manifest_test.ts
+  s_b88c3df5323d00::t_5ef94fa36edc2f 73-107
+  s_b88c3df5323d00::t_e3c8bfdb3d0187 2-4,6
+src/engine/cycle.ts
+  s_b88c3df5323d00::t_105edeaa875dd8 3-5,7-9,11-17,19-51
+src/engine/cycle_test.ts
+  s_b88c3df5323d00::t_eeedac99c17092 1-6,8-53
+src/engine/menu_test.ts
+  s_b88c3df5323d00::t_2e5344046731c1 16-20,23-24
+  s_b88c3df5323d00::t_8b6a5460946f70 1,8-15,21-22,25-28,30-42,44-52
+  s_b88c3df5323d00::t_fa5dfee6bdbabf 2-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "2f2960706558df3cf3a102b2edbbab6a0aa05f82",
+  "prompts": {},
+  "sessions": {
+    "s_b88c3df5323d00": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5769a00d-c55a-44ad-bc85-aa08d1cb5158",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
