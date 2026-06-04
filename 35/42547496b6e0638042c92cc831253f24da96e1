@@ -1,0 +1,21 @@
+deno.lock
+  ai_agent 11,872
+package.json
+  s_1e2ccf0df36056::t_16ae0e4801777e 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "3542547496b6e0638042c92cc831253f24da96e1",
+  "prompts": {},
+  "sessions": {
+    "s_1e2ccf0df36056": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cccda137-d19f-4c41-b599-6d5b24ed56c7",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
