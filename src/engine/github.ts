@@ -11,10 +11,11 @@ export interface Commit {
   date: string;
 }
 
-// The shared failure arm for every GitHub fetch. status is the HTTP status when
-// the response was non-ok (e.g. 404), absent on a transport/parse failure that
-// never produced one. Callers classify on status (poll.ts: 404 = folder absent at
-// this ref); error stays human-readable, surfaced in the Error freshness state.
+// The shared failure arm for every GitHub fetch. status is set only on a non-ok
+// HTTP response (e.g. 404) — the case callers classify on (poll.ts: 404 = folder
+// absent at this ref). It is left undefined otherwise: a transport failure has no
+// response, and a parse failure of an otherwise-ok (200) body has no failure status
+// worth matching. error stays human-readable, surfaced in the Error freshness state.
 export type FetchError = { ok: false; status?: number; error: string };
 
 export type CommitResult = { ok: true; commit: Commit } | FetchError;
