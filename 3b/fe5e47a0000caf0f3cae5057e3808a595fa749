@@ -1,0 +1,32 @@
+src/engine/menu.ts
+  s_5f436301d186c9::t_eab6520cf74391 4
+src/platform.ts
+  s_5f436301d186c9::t_4b367e45295b0d 27,29,32-34
+  s_5f436301d186c9::t_afcf2e83fc7ff3 28
+src-tauri/src/lib.rs
+  s_f561e267fbee37::t_279c023026611a 22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "3bfe5e47a0000caf0f3cae5057e3808a595fa749",
+  "prompts": {},
+  "sessions": {
+    "s_5f436301d186c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "95818242-82d3-4dca-bb55-9ec8bde741b9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    },
+    "s_f561e267fbee37": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "392255d8-30e6-48a1-abf9-ab07d3670da5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
