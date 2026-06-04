@@ -12,8 +12,14 @@ export function makePollScheduler(
     if (inFlight) return;
 
     inFlight = true;
-    void Promise.resolve()
-      .then(run)
+    let task: Promise<unknown>;
+    try {
+      task = run();
+    } catch {
+      task = Promise.reject();
+    }
+
+    void task
       .catch(() => {
         // run handles user-visible error reporting; scheduler keeps flowing
       })

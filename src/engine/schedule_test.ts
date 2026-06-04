@@ -1,5 +1,17 @@
-import { assertEquals } from "@std/assert";
 import { makePollScheduler } from "./schedule.ts";
+
+function assertEquals(actual: number[], expected: number[]) {
+  if (
+    actual.length !== expected.length ||
+    actual.some((value, i) => value !== expected[i])
+  ) {
+    throw new Error(
+      `assertEquals failed\nexpected: ${JSON.stringify(expected)}\nactual: ${
+        JSON.stringify(actual)
+      }`,
+    );
+  }
+}
 
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;

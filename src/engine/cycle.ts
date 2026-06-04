@@ -13,6 +13,6 @@ const PLACEHOLDER_MENU: MenuModel = {
   ],
 };
 
-export async function runPollCycle(): Promise<PollOutcome> {
-  return { menu: PLACEHOLDER_MENU, behind: 0 };
+export function runPollCycle(): Promise<PollOutcome> {
+  return Promise.resolve({ menu: PLACEHOLDER_MENU, behind: 0 });
 }
