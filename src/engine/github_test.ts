@@ -98,7 +98,11 @@ Deno.test("makeGitHubFetcher reports a non-ok status as an error", async () => {
     "main",
   );
 
-  assertEquals(result, { ok: false, error: "GitHub API 404 Not Found" });
+  assertEquals(result, {
+    ok: false,
+    status: 404,
+    error: "GitHub API 404 Not Found",
+  });
 });
 
 Deno.test("makeGitHubFetcher surfaces a transport failure as an error", async () => {
@@ -232,7 +236,11 @@ Deno.test("makeFolderTreeFetcher reports a non-ok status as an error", async () 
     "main",
   );
 
-  assertEquals(result, { ok: false, error: "GitHub API 404 Not Found" });
+  assertEquals(result, {
+    ok: false,
+    status: 404,
+    error: "GitHub API 404 Not Found",
+  });
 });
 
 Deno.test("makeFolderTreeFetcher surfaces a transport failure as an error", async () => {
@@ -326,7 +334,11 @@ Deno.test("makePathCommitsFetcher reports a non-ok status as an error", async ()
     "main",
   );
 
-  assertEquals(result, { ok: false, error: "GitHub API 422 Unprocessable" });
+  assertEquals(result, {
+    ok: false,
+    status: 422,
+    error: "GitHub API 422 Unprocessable",
+  });
 });
 
 Deno.test("makePathCommitsFetcher surfaces a transport failure as an error", async () => {
@@ -396,5 +408,9 @@ Deno.test("makePathCommitsFetcher fails the whole fetch when a later page errors
     "main",
   );
 
-  assertEquals(result, { ok: false, error: "GitHub API 500 Server Error" });
+  assertEquals(result, {
+    ok: false,
+    status: 500,
+    error: "GitHub API 500 Server Error",
+  });
 });

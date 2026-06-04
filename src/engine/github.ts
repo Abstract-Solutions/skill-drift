@@ -11,9 +11,13 @@ export interface Commit {
   date: string;
 }
 
-export type CommitResult =
-  | { ok: true; commit: Commit }
-  | { ok: false; error: string };
+// The shared failure arm for every GitHub fetch. status is the HTTP status when
+// the response was non-ok (e.g. 404), absent on a transport/parse failure that
+// never produced one. Callers classify on status (poll.ts: 404 = folder absent at
+// this ref); error stays human-readable, surfaced in the Error freshness state.
+export type FetchError = { ok: false; status?: number; error: string };
+
+export type CommitResult = { ok: true; commit: Commit } | FetchError;
 
 // A directory's child entries at a ref. sha on a "dir" entry is its tree SHA —
 // the same kind of hash the Manifest stores as skillFolderHash.
@@ -25,11 +29,9 @@ export interface FolderEntry {
 
 export type FolderTreeResult =
   | { ok: true; entries: FolderEntry[] }
-  | { ok: false; error: string };
+  | FetchError;
 
-export type PathCommitsResult =
-  | { ok: true; commits: Commit[] }
-  | { ok: false; error: string };
+export type PathCommitsResult = { ok: true; commits: Commit[] } | FetchError;
 
 // One commit element from the /commits endpoint.
 interface RawCommit {
@@ -59,7 +61,40 @@ function ghHeaders(token?: string): Record<string, string> {
   return headers;
 }
 
-// fetchImpl is an internal seam: tests inject a fake; the edge calls makeGitHubFetcher(token).
+// The request core (internal seam): headers, fetch, the status-check error, JSON
+// parse, and Link extraction, in one place. On success returns the parsed body and
+// the rel="next" link; otherwise a typed FetchError — status set only when the
+// response was non-ok, so a transport or parse failure carries none. The three
+// fetchers below shape `data` into their domain result; tests drive them, not this.
+async function ghGet(
+  url: string,
+  token?: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ ok: true; data: unknown; link: string | null } | FetchError> {
+  try {
+    const res = await fetchImpl(url, { headers: ghHeaders(token) });
+    if (!res.ok) {
+      return {
+        ok: false,
+        status: res.status,
+        error: `GitHub API ${res.status} ${res.statusText}`,
+      };
+    }
+    return {
+      ok: true,
+      data: await res.json(),
+      link: nextLink(res.headers.get("link")),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+// Latest commit on a branch. The edge calls makeGitHubFetcher(token); tests inject
+// fetchImpl through ghGet.
 export function makeGitHubFetcher(
   token?: string,
   fetchImpl: typeof fetch = fetch,
@@ -69,24 +104,12 @@ export function makeGitHubFetcher(
     repo: string,
     branch: string,
   ): Promise<CommitResult> => {
-    try {
-      const res = await fetchImpl(
-        `${GITHUB_API}/repos/${owner}/${repo}/commits/${branch}`,
-        { headers: ghHeaders(token) },
-      );
-      if (!res.ok) {
-        return {
-          ok: false,
-          error: `GitHub API ${res.status} ${res.statusText}`,
-        };
-      }
-      return { ok: true, commit: toCommit(await res.json()) };
-    } catch (err) {
-      return {
-        ok: false,
-        error: err instanceof Error ? err.message : String(err),
-      };
-    }
+    const r = await ghGet(
+      `${GITHUB_API}/repos/${owner}/${repo}/commits/${branch}`,
+      token,
+      fetchImpl,
+    );
+    return r.ok ? { ok: true, commit: toCommit(r.data as RawCommit) } : r;
   };
 }
 
@@ -102,35 +125,23 @@ export function makeFolderTreeFetcher(
     dir: string,
     ref: string,
   ): Promise<FolderTreeResult> => {
-    try {
-      // dir segments keep their "/" separators; encode each part. ref is a
-      // query value, so encode it whole.
-      const path = dir
-        ? "/" + dir.split("/").map(encodeURIComponent).join("/")
-        : "";
-      const res = await fetchImpl(
-        `${GITHUB_API}/repos/${owner}/${repo}/contents${path}?ref=${
-          encodeURIComponent(ref)
-        }`,
-        { headers: ghHeaders(token) },
-      );
-      if (!res.ok) {
-        return {
-          ok: false,
-          error: `GitHub API ${res.status} ${res.statusText}`,
-        };
-      }
-      const data = await res.json();
-      const entries: FolderEntry[] = Array.isArray(data)
-        ? data.map((e) => ({ name: e.name, sha: e.sha, type: e.type }))
-        : [];
-      return { ok: true, entries };
-    } catch (err) {
-      return {
-        ok: false,
-        error: err instanceof Error ? err.message : String(err),
-      };
-    }
+    // dir segments keep their "/" separators; encode each part. ref is a query
+    // value, so encode it whole.
+    const path = dir
+      ? "/" + dir.split("/").map(encodeURIComponent).join("/")
+      : "";
+    const r = await ghGet(
+      `${GITHUB_API}/repos/${owner}/${repo}/contents${path}?ref=${
+        encodeURIComponent(ref)
+      }`,
+      token,
+      fetchImpl,
+    );
+    if (!r.ok) return r;
+    const entries: FolderEntry[] = Array.isArray(r.data)
+      ? r.data.map((e) => ({ name: e.name, sha: e.sha, type: e.type }))
+      : [];
+    return { ok: true, entries };
   };
 }
 
@@ -154,34 +165,21 @@ export function makePathCommitsFetcher(
     path: string,
     branch: string,
   ): Promise<PathCommitsResult> => {
-    try {
-      // sha (branch) and path are query values — encode both.
-      let url: string | null =
-        `${GITHUB_API}/repos/${owner}/${repo}/commits?sha=${
-          encodeURIComponent(branch)
-        }&path=${encodeURIComponent(path)}&per_page=100`;
-      const commits: Commit[] = [];
-      while (url) {
-        const res = await fetchImpl(url, { headers: ghHeaders(token) });
-        if (!res.ok) {
-          return {
-            ok: false,
-            error: `GitHub API ${res.status} ${res.statusText}`,
-          };
-        }
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          for (const c of data) commits.push(toCommit(c));
-        }
-        url = nextLink(res.headers.get("link"));
+    // sha (branch) and path are query values — encode both.
+    let url: string | null =
+      `${GITHUB_API}/repos/${owner}/${repo}/commits?sha=${
+        encodeURIComponent(branch)
+      }&path=${encodeURIComponent(path)}&per_page=100`;
+    const commits: Commit[] = [];
+    while (url) {
+      const r = await ghGet(url, token, fetchImpl);
+      if (!r.ok) return r;
+      if (Array.isArray(r.data)) {
+        for (const c of r.data) commits.push(toCommit(c));
       }
-      return { ok: true, commits };
-    } catch (err) {
-      return {
-        ok: false,
-        error: err instanceof Error ? err.message : String(err),
-      };
+      url = r.link;
     }
+    return { ok: true, commits };
   };
 }
 
