@@ -1,0 +1,34 @@
+src-tauri/src/lib.rs
+  s_46ddb7ef2e4b0c::t_254182144f6266 2,5,8-35,40,57-72
+  s_46ddb7ef2e4b0c::t_38506022c2db32 1
+src/engine/schedule.ts
+  s_46ddb7ef2e4b0c::t_80291dbf034c72 25-36
+  s_46ddb7ef2e4b0c::t_627aa65c73b13b 1-24,37-45
+src/engine/cycle.ts
+  s_46ddb7ef2e4b0c::t_5ea49bc097c4d8 1-14
+src-tauri/Cargo.toml
+  s_46ddb7ef2e4b0c::t_c25c912e3bc42a 25-27
+src/engine/schedule_test.ts
+  s_46ddb7ef2e4b0c::t_99f4fa7bcf7361 1-132
+src/App.tsx
+  s_46ddb7ef2e4b0c::t_31d5aa3788c992 41-45
+  s_46ddb7ef2e4b0c::t_7b5bf7194a9dfe 2-4,22-40,46
+src/platform.ts
+  s_46ddb7ef2e4b0c::t_bc0f6bb0eeceb6 4-5,13-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "53026552622148f1fb76298f4252fa08bbb75f0f",
+  "prompts": {},
+  "sessions": {
+    "s_46ddb7ef2e4b0c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "04e77657-3b26-4cef-8580-8b830ad49131",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
