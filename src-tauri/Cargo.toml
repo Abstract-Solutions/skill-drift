@@ -25,4 +25,13 @@ serde_json = "1"
 # Poll-clock interval (ADR-0005). "time" only — Tauri drives the runtime via
 # async_runtime::spawn; we just need tokio::time::interval.
 tokio = { version = "1", features = ["time"] }
+# GitHub PAT read from the OS Keychain (ADR-0006). keyring-core is the cross-
+# platform abstraction (the old `keyring` crate self-demoted in v4); the macOS
+# login-Keychain backend is target-gated below, one #[cfg] arm per future OS.
+keyring-core = "1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# "keychain" = the login-Keychain backend (vs "protected", the keychain-less data
+# store); the crate requires one be chosen on macOS.
+apple-native-keyring-store = { version = "1", features = ["keychain"] }
 

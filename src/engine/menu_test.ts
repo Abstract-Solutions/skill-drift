@@ -5,6 +5,7 @@ import {
   malformedMenu,
   type MenuModel,
   nothingInstalledMenu,
+  noTokenMenu,
 } from "./menu.ts";
 import type { WatchedRepo } from "./manifest.ts";
 
@@ -46,6 +47,10 @@ Deno.test("nothingInstalledMenu and malformedMenu headline their state", () => {
   assertEquals(header(malformedMenu()), "skill-drift — manifest unreadable");
 });
 
+Deno.test("noTokenMenu headlines the add-token state", () => {
+  assertEquals(header(noTokenMenu()), "skill-drift — add a GitHub token");
+});
+
 Deno.test("bootMenu headlines the starting state", () => {
   assertEquals(header(bootMenu()), "skill-drift — starting…");
 });
@@ -54,5 +59,6 @@ Deno.test("every menu frame ends in Quit", () => {
   assertEquals(endsInQuit(bootMenu()), true);
   assertEquals(endsInQuit(installedMenu([repo("a")])), true);
   assertEquals(endsInQuit(nothingInstalledMenu()), true);
+  assertEquals(endsInQuit(noTokenMenu()), true);
   assertEquals(endsInQuit(malformedMenu()), true);
 });

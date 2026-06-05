@@ -1,5 +1,15 @@
 import { useEffect } from "react";
-import { onPollTick, readManifest, renderMenu, setBadge } from "./platform.ts";
+import {
+  cache,
+  getToken,
+  now,
+  onPollTick,
+  readManifest,
+  renderMenu,
+  saveSnapshot,
+  setBadge,
+} from "./platform.ts";
+import { makeFetchers } from "./engine/github.ts";
 import { makePollScheduler } from "./engine/schedule.ts";
 import { runPollCycle } from "./engine/cycle.ts";
 import { bootMenu } from "./engine/menu.ts";
@@ -12,16 +22,26 @@ function App() {
     // the Manifest, derives the Watched Repos, and returns a PollOutcome the view
     // renders (menu + badge); the cycle's menu replaces the old mount placeholder.
     const scheduler = makePollScheduler(async () => {
-      const out = await runPollCycle({ readManifest });
+      const out = await runPollCycle({
+        readManifest,
+        getToken,
+        makeFetchers,
+        cache,
+        saveSnapshot,
+        now,
+      });
       // Hidden webview: an unhandled rejection would be invisible, and these are
-      // the visible #4 signals — the derived Watched Repos, or the empty/error
-      // outcome — in the webview devtools.
+      // the visible #5 signals — the real per-Skill statuses, or the empty / no-
+      // token / error outcome — in the webview devtools.
       switch (out.kind) {
         case "ok":
-          console.info("watched repos", out.repos);
+          console.info("skill statuses", out.statuses);
           break;
         case "no-manifest":
           console.info("nothing installed");
+          break;
+        case "no-token":
+          console.warn("no github token — add one to the Keychain");
           break;
         case "malformed":
           console.error("manifest malformed");

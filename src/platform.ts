@@ -6,6 +6,8 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { TrayIcon } from "@tauri-apps/api/tray";
 import type { MenuModel, MenuRow } from "./engine/menu.ts";
+import type { Snapshot } from "./engine/cycle.ts";
+import { makeMemoryCache } from "./engine/poll.ts";
 
 // Shared with the Rust setup hook (TrayIconBuilder::with_id).
 export const TRAY_ID = "main";
@@ -34,6 +36,30 @@ export function setBadge(count: number): Promise<void> {
 export function readManifest(): Promise<string | null> {
   return invoke<string | null>("read_manifest");
 }
+
+// The GitHub PAT, read by Rust from the macOS Keychain via get_token (ADR-0006):
+// Rust owns where the secret lives and hands over the bytes; TS uses the token —
+// it flows into the fetchers' Authorization header — but never persists it, so
+// ADR-0002 holds (Rust hands over bytes, never classifies). Resolves to the stored
+// PAT, or null when none is set — the cycle's no-token short-circuit. The gh-token
+// fallback and unauthenticated degrade (ADR-0006) are deferred past the tracer bullet.
+export function getToken(): Promise<string | null> {
+  return invoke<string | null>("get_token");
+}
+
+// App-private cycle state (ADR-0008). For this slice both are in-memory: the
+// store-backed cache + snapshot are deferred. The cache is a module singleton so
+// resolved baselines survive across polls within the session; saveSnapshot stamps
+// polledAt-bearing snapshots — held only in the webview's log until #6's popover
+// reads them back. now is the injectable clock the cycle stamps the snapshot with.
+export const cache = makeMemoryCache();
+
+export function saveSnapshot(snapshot: Snapshot): Promise<void> {
+  console.debug("snapshot saved", snapshot);
+  return Promise.resolve();
+}
+
+export const now = (): Date => new Date();
 
 export async function renderMenu(model: MenuModel): Promise<void> {
   const items = await Promise.all(model.rows.map(toNativeItem));
