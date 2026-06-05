@@ -41,6 +41,11 @@ export function nothingInstalledMenu(): MenuModel {
   return framedMenu("skill-drift — no skills installed");
 }
 
+/** No-token outcome: a GitHub token is needed before the poll runs (ADR-0006). */
+export function noTokenMenu(): MenuModel {
+  return framedMenu("skill-drift — add a GitHub token");
+}
+
 /** Malformed outcome: Manifest present but unparseable or wrong-shaped. */
 export function malformedMenu(): MenuModel {
   return framedMenu("skill-drift — manifest unreadable");

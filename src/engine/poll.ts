@@ -54,6 +54,10 @@ export interface AssembleDeps {
   cache: BaselineCache;
 }
 
+// The three GitHub fetchers without the cache — what makeFetchers(token) builds
+// (github.ts) and the cycle spreads into AssembleDeps alongside its own cache.
+export type Fetchers = Omit<AssembleDeps, "cache">;
+
 export interface RepoStatus {
   source: string;
   branch: string;
@@ -255,4 +259,23 @@ async function baselineIndex(
     if (r.sha === hash) return { ok: true, idx: i };
   }
   return { ok: true, idx: -1 };
+}
+
+// In-memory BaselineCache for the tracer-bullet slice (#5); the store-backed
+// implementation (ADR-0008) replaces it later. Resolved baselines live only for
+// the session — losing them on relaunch costs one poll, not data (ADR-0004). Key
+// matches the store schema (`${source}|${folder}|${hash}`); a missing key reads as
+// undefined (uncached), a stored null as known-absent (Diverged).
+export function makeMemoryCache(): BaselineCache {
+  const store = new Map<string, string | null>();
+  const key = (source: string, folder: string, hash: string) =>
+    `${source}|${folder}|${hash}`;
+  return {
+    get: (source, folder, hash) =>
+      Promise.resolve(store.get(key(source, folder, hash))),
+    set: (source, folder, hash, sha) => {
+      store.set(key(source, folder, hash), sha);
+      return Promise.resolve();
+    },
+  };
 }

@@ -5,6 +5,7 @@ import {
   type FetchCommit,
   type FetchFolderTree,
   type FetchPathCommits,
+  makeMemoryCache,
   pollRepos,
 } from "./poll.ts";
 import type { Commit, FolderEntry } from "./github.ts";
@@ -90,6 +91,15 @@ Deno.test("pollRepos returns [] and never fetches for no WatchedRepos", async ()
 
   assertEquals(await pollRepos([], fetchCommit), []);
   assertEquals(called, false);
+});
+
+Deno.test("makeMemoryCache: miss is undefined, a set value round-trips, null is known-absent", async () => {
+  const cache = makeMemoryCache();
+  assertEquals(await cache.get("o/r", "skills/a", "h"), undefined); // uncached
+  await cache.set("o/r", "skills/a", "h", "sha1");
+  assertEquals(await cache.get("o/r", "skills/a", "h"), "sha1");
+  await cache.set("o/r", "skills/a", "h", null);
+  assertEquals(await cache.get("o/r", "skills/a", "h"), null);
 });
 
 // --- assembleSkillStatuses ---
