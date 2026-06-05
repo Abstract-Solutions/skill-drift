@@ -1,0 +1,50 @@
+src/platform.ts
+  s_f49bc1eb037b68::t_be288cb68ead53 40-62
+  s_f49bc1eb037b68::t_f8233a58e9f614 9-10
+src/App.tsx
+  s_f49bc1eb037b68::t_6e967fc8354c68 25-32,34-35,38,43-44
+  s_f49bc1eb037b68::t_90d9e4c117e101 2-12
+src/engine/github.ts
+  s_f49bc1eb037b68::t_95f3bd583045ac 187-198
+src-tauri/Cargo.toml
+  s_f49bc1eb037b68::t_65c946f71a939e 34-36
+  s_f49bc1eb037b68::t_501fe17948ec1f 28-33
+src/engine/poll_test.ts
+  s_f49bc1eb037b68::t_16d12b91455f5e 96-104
+  s_f49bc1eb037b68::t_779fab8ec96dee 8
+src/engine/menu.ts
+  s_f49bc1eb037b68::t_82b316adbf6c2e 44-48
+src-tauri/src/lib.rs
+  s_f49bc1eb037b68::t_50271196ee806e 80
+  s_f49bc1eb037b68::t_52a6509a9be60f 104-108,115-118
+  s_f49bc1eb037b68::t_1c45e1095dbf47 66-79,81-99
+src/engine/menu_test.ts
+  s_f49bc1eb037b68::t_5e7ab7d6959529 8
+  s_f49bc1eb037b68::t_6b4b7ca815697e 50-53
+  s_f49bc1eb037b68::t_22b67215b8d2cf 62
+src/engine/poll.ts
+  s_f49bc1eb037b68::t_e301bcf8caa8ab 57-60
+  s_f49bc1eb037b68::t_83966e0c76f9e5 263-281
+src/engine/cycle_test.ts
+  s_f49bc1eb037b68::t_80b5c383ba8704 2-4,6-7,12,15-23,26-95,113-115,119-153,156,164-165,170-194
+  s_f49bc1eb037b68::t_5e7ab7d6959529 158-159,161,166-169
+src/engine/cycle.ts
+  s_f49bc1eb037b68::t_5e7ab7d6959529 19
+  s_f49bc1eb037b68::t_9a74384f5fcb86 2-5,8-13,23-24,26,28,31-38,40-42,45-49,67-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "949231c834733e6008a90d798c7d6e10ed412713",
+  "prompts": {},
+  "sessions": {
+    "s_f49bc1eb037b68": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2daf261d-b1f9-4601-8cbb-2f25fcfa547c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
