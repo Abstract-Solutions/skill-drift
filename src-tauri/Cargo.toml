@@ -34,4 +34,8 @@ keyring-core = "1"
 # "keychain" = the login-Keychain backend (vs "protected", the keychain-less data
 # store); the crate requires one be chosen on macOS.
 apple-native-keyring-store = { version = "1", features = ["keychain"] }
+# Login-shell PATH for the `gh` token fallback (ADR-0006): a Finder-/bundle-launched
+# app inherits a minimal PATH, so a bare `gh` spawn can't find the binary. The crate
+# is unpublished (Tauri's own) — pin a rev for a reproducible build.
+fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs", rev = "c4c45d503ea115a839aae718d02f79e7c7f0f673" }
 

@@ -84,13 +84,30 @@ fn register_keychain_store() -> Result<(), String> {
     Ok(())
 }
 
-// Reads the user's GitHub PAT from the macOS Keychain for the frontend (ADR-0006):
-// Rust owns the secret and hands over bytes, TS only uses it (ADR-0002). Ok(None)
-// when no item is stored — the clean "add a token" signal the TS cycle maps to
-// no-token; Ok(Some(pat)) otherwise. Any other Keychain failure surfaces as Err.
+// Resolves a GitHub token for the frontend in the ADR-0006 order: the stored
+// skill-drift PAT, else the GitHub CLI's token (env GH_TOKEN/GITHUB_TOKEN, else
+// `gh auth token` live), else None. Rust owns where the secret lives and hands over
+// bytes; TS only uses it (ADR-0002). Ok(None) is the clean "add a token" signal the
+// cycle maps to no-token; only a genuine Keychain failure (not a missing item) is
+// Err. The gh token is queried live and never copied into our own item — that keeps
+// gh users zero-config and the token never stale (ADR-0006).
+//
+// `(async)` runs the (synchronous) body off the main thread: the gh / login-shell
+// spawns below block, and Tauri runs sync commands on the main thread, which would
+// freeze the tray + webview for the spawn's duration on every poll.
 #[cfg(target_os = "macos")]
-#[tauri::command]
+#[tauri::command(async)]
 fn get_token() -> Result<Option<String>, String> {
+    if let Some(pat) = keychain_pat()? {
+        return Ok(Some(pat));
+    }
+    Ok(gh_token())
+}
+
+// The stored skill-drift PAT (TOKEN_SERVICE/TOKEN_ACCOUNT). Ok(None) when no item
+// exists — the signal to try the gh fallback; any other Keychain failure is Err.
+#[cfg(target_os = "macos")]
+fn keychain_pat() -> Result<Option<String>, String> {
     let entry =
         keyring_core::Entry::new(TOKEN_SERVICE, TOKEN_ACCOUNT).map_err(|e| e.to_string())?;
     match entry.get_password() {
@@ -98,6 +115,91 @@ fn get_token() -> Result<Option<String>, String> {
         Err(keyring_core::error::Error::NoEntry) => Ok(None),
         Err(e) => Err(e.to_string()),
     }
+}
+
+// The GitHub CLI fallback (ADR-0006), used when no skill-drift PAT is stored:
+// GH_TOKEN/GITHUB_TOKEN from the env, else `gh auth token` queried live. None when
+// neither is available — the unchanged no-token outcome.
+#[cfg(target_os = "macos")]
+fn gh_token() -> Option<String> {
+    env_token().or_else(gh_auth_token)
+}
+
+// GH_TOKEN, then GITHUB_TOKEN — gh's own precedence. Checked before any spawn, so a
+// GUI-launched app with a minimal PATH still resolves these even when `gh` can't be
+// found (ADR-0006). The precedence/trim/empty logic lives in env_token_from.
+#[cfg(target_os = "macos")]
+fn env_token() -> Option<String> {
+    env_token_from(|key| std::env::var(key).ok())
+}
+
+// First non-empty of GH_TOKEN then GITHUB_TOKEN, trimmed; empty/whitespace counts as
+// unset and falls through. The env read is injected as `lookup` so this logic is
+// unit-tested without mutating process env, which cargo's parallel tests would race.
+#[cfg(target_os = "macos")]
+fn env_token_from(lookup: impl Fn(&str) -> Option<String>) -> Option<String> {
+    ["GH_TOKEN", "GITHUB_TOKEN"].into_iter().find_map(|key| {
+        lookup(key)
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+    })
+}
+
+// `gh auth token` queried live (ADR-0006): its output reflects gh's current,
+// refreshed token wherever gh keeps it (its own Keychain item, under an ACL we
+// can't read directly). None unless gh is found, exits 0, and prints a non-empty
+// token — a missing or logged-out gh is the no-token outcome, not an error.
+#[cfg(target_os = "macos")]
+fn gh_auth_token() -> Option<String> {
+    let gh = resolve_gh()?;
+    let out = std::process::Command::new(gh)
+        .args(["auth", "token"])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let token = String::from_utf8(out.stdout).ok()?.trim().to_string();
+    (!token.is_empty()).then_some(token)
+}
+
+// Fixed-location `gh` installs, probed before the login-shell fallback (ADR-0006) to
+// skip a shell spawn: Homebrew (Apple Silicon, then Intel) and MacPorts. Installs at
+// variable/home-relative paths (Conda, Flox, Spack, Webi, a hand-placed binary) are
+// deliberately absent — the fix-path-env fallback resolves those from the user's real
+// shell PATH, so this list need only cover the fixed system locations.
+#[cfg(target_os = "macos")]
+const KNOWN_GH_PATHS: [&str; 3] = [
+    "/opt/homebrew/bin/gh",
+    "/usr/local/bin/gh",
+    "/opt/local/bin/gh",
+];
+
+// Locate `gh` despite the GUI-launch PATH gotcha (ADR-0006): a Finder-/bundle-
+// launched app inherits a minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin), so a bare
+// `gh` isn't found. Probe the fixed install paths first (common case, no shell
+// spawn); else rewrite this process's PATH from a login shell so a bare `gh` resolves
+// wherever it lives. `tauri dev` inherits the terminal PATH, so only the bundle needs
+// the fallback.
+#[cfg(target_os = "macos")]
+fn resolve_gh() -> Option<std::path::PathBuf> {
+    if let Some(path) = KNOWN_GH_PATHS
+        .into_iter()
+        .map(std::path::PathBuf::from)
+        .find(|p| p.exists())
+    {
+        return Some(path);
+    }
+    // fix() spawns a login shell and rewrites PATH; do it at most once per process —
+    // Once caps that cost and confines the env mutation to a single call.
+    static FIX_PATH: std::sync::Once = std::sync::Once::new();
+    FIX_PATH.call_once(|| {
+        if let Err(e) = fix_path_env::fix() {
+            eprintln!("fix-path-env failed: {e}");
+        }
+    });
+    // Resolved via the now-fixed PATH; Command yields Err (→ None) if gh is absent.
+    Some(std::path::PathBuf::from("gh"))
 }
 
 // No Keychain backend off macOS yet (ADR-0006 is macOS-first). Report no token so
@@ -161,4 +263,48 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+// env_token_from precedence + empty-handling (ADR-0006). Injecting the lookup keeps
+// the logic off process env, so the tests need no global state and stay parallel-safe.
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use super::env_token_from;
+
+    #[test]
+    fn returns_none_when_neither_var_is_set() {
+        assert_eq!(env_token_from(|_| None), None);
+    }
+
+    #[test]
+    fn uses_github_token_when_it_is_the_only_one_set() {
+        let env = |k: &str| (k == "GITHUB_TOKEN").then(|| "from-github".to_string());
+        assert_eq!(env_token_from(env).as_deref(), Some("from-github"));
+    }
+
+    #[test]
+    fn gh_token_takes_precedence_over_github_token() {
+        let env = |k: &str| match k {
+            "GH_TOKEN" => Some("from-gh".to_string()),
+            "GITHUB_TOKEN" => Some("from-github".to_string()),
+            _ => None,
+        };
+        assert_eq!(env_token_from(env).as_deref(), Some("from-gh"));
+    }
+
+    #[test]
+    fn blank_gh_token_falls_through_to_github_token() {
+        let env = |k: &str| match k {
+            "GH_TOKEN" => Some("   ".to_string()),
+            "GITHUB_TOKEN" => Some("from-github".to_string()),
+            _ => None,
+        };
+        assert_eq!(env_token_from(env).as_deref(), Some("from-github"));
+    }
+
+    #[test]
+    fn trims_surrounding_whitespace() {
+        let env = |k: &str| (k == "GH_TOKEN").then(|| "  tok  ".to_string());
+        assert_eq!(env_token_from(env).as_deref(), Some("tok"));
+    }
 }
