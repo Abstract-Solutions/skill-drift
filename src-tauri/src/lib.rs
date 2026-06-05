@@ -145,21 +145,43 @@ fn env_token_from(lookup: impl Fn(&str) -> Option<String>) -> Option<String> {
     })
 }
 
-// `gh auth token` queried live (ADR-0006): its output reflects gh's current,
-// refreshed token wherever gh keeps it (its own Keychain item, under an ACL we
-// can't read directly). None unless gh is found, exits 0, and prints a non-empty
-// token — a missing or logged-out gh is the no-token outcome, not an error.
+// Ceiling on the `gh auth token` subprocess (ADR-0006). It's a local Keychain read
+// (sub-100ms in practice), so this generous bound never trips a healthy call but
+// stops a stalled gh — an unreachable-network refresh or a lingering Keychain prompt
+// — from blocking the worker thread indefinitely; the poll degrades to no-token.
+#[cfg(target_os = "macos")]
+const GH_AUTH_TIMEOUT: Duration = Duration::from_secs(5);
+
+// `gh auth token` queried live (ADR-0006): its output reflects gh's current, refreshed
+// token wherever gh keeps it (its own Keychain item, under an ACL we can't read
+// directly). None unless gh is found and exits 0 within GH_AUTH_TIMEOUT with a
+// non-empty token — a missing, logged-out, or stalled gh is the no-token outcome, not
+// an error.
 #[cfg(target_os = "macos")]
 fn gh_auth_token() -> Option<String> {
+    use std::io::Read;
+    use std::process::{Command, Stdio};
+    use wait_timeout::ChildExt;
+
     let gh = resolve_gh()?;
-    let out = std::process::Command::new(gh)
+    let mut child = Command::new(gh)
         .args(["auth", "token"])
-        .output()
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
         .ok()?;
-    if !out.status.success() {
+    let Some(status) = child.wait_timeout(GH_AUTH_TIMEOUT).ok()? else {
+        // Stalled gh: kill it and degrade to no-token instead of blocking.
+        let _ = child.kill();
+        let _ = child.wait();
+        return None;
+    };
+    if !status.success() {
         return None;
     }
-    let token = String::from_utf8(out.stdout).ok()?.trim().to_string();
+    let mut token = String::new();
+    child.stdout.take()?.read_to_string(&mut token).ok()?;
+    let token = token.trim().to_string();
     (!token.is_empty()).then_some(token)
 }
 

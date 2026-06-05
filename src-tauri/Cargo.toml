@@ -38,4 +38,7 @@ apple-native-keyring-store = { version = "1", features = ["keychain"] }
 # app inherits a minimal PATH, so a bare `gh` spawn can't find the binary. The crate
 # is unpublished (Tauri's own) — pin a rev for a reproducible build.
 fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs", rev = "c4c45d503ea115a839aae718d02f79e7c7f0f673" }
+# Deadline for the `gh auth token` subprocess (ADR-0006): std's Command::output() has
+# no timeout, so a stalled gh could block the poll's worker thread indefinitely.
+wait-timeout = "0.2"
 
