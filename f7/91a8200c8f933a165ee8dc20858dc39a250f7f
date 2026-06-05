@@ -1,0 +1,19 @@
+src/platform.ts
+  s_f49bc1eb037b68::t_1485704564ff01 41-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "f791a8200c8f933a165ee8dc20858dc39a250f7f",
+  "prompts": {},
+  "sessions": {
+    "s_f49bc1eb037b68": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2daf261d-b1f9-4601-8cbb-2f25fcfa547c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Mathias Lundin <mathias.lundin87@gmail.com>"
+    }
+  }
+}
