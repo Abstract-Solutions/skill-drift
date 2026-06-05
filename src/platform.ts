@@ -38,10 +38,11 @@ export function readManifest(): Promise<string | null> {
 }
 
 // The GitHub PAT, read by Rust from the macOS Keychain via get_token (ADR-0006):
-// Rust owns the secret, TS injects it into the fetchers and never reads it itself
-// (ADR-0002). Resolves to the stored PAT, or null when none is set — the cycle's
-// no-token short-circuit. The gh-token fallback and unauthenticated degrade
-// (ADR-0006) are deferred past the tracer bullet.
+// Rust owns where the secret lives and hands over the bytes; TS uses the token —
+// it flows into the fetchers' Authorization header — but never persists it, so
+// ADR-0002 holds (Rust hands over bytes, never classifies). Resolves to the stored
+// PAT, or null when none is set — the cycle's no-token short-circuit. The gh-token
+// fallback and unauthenticated degrade (ADR-0006) are deferred past the tracer bullet.
 export function getToken(): Promise<string | null> {
   return invoke<string | null>("get_token");
 }
