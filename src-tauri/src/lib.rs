@@ -68,7 +68,9 @@ fn read_manifest(app: tauri::AppHandle) -> Result<Option<String>, String> {
 //   security add-generic-password -s skill-drift -a github-pat -w <PAT>
 // get_token reads it; the writer command (set_token) is deferred. Upsert when it
 // lands — never delete-then-recreate, which wipes the item's ACL (ADR-0006).
+#[cfg(target_os = "macos")]
 const TOKEN_SERVICE: &str = "skill-drift";
+#[cfg(target_os = "macos")]
 const TOKEN_ACCOUNT: &str = "github-pat";
 
 // Registers the macOS login Keychain as keyring-core's default credential store
@@ -82,10 +84,11 @@ fn register_keychain_store() -> Result<(), String> {
     Ok(())
 }
 
-// Reads the user's GitHub PAT from the OS Keychain for the frontend (ADR-0006):
+// Reads the user's GitHub PAT from the macOS Keychain for the frontend (ADR-0006):
 // Rust owns the secret and hands over bytes, TS only uses it (ADR-0002). Ok(None)
 // when no item is stored — the clean "add a token" signal the TS cycle maps to
 // no-token; Ok(Some(pat)) otherwise. Any other Keychain failure surfaces as Err.
+#[cfg(target_os = "macos")]
 #[tauri::command]
 fn get_token() -> Result<Option<String>, String> {
     let entry =
@@ -95,6 +98,16 @@ fn get_token() -> Result<Option<String>, String> {
         Err(keyring_core::error::Error::NoEntry) => Ok(None),
         Err(e) => Err(e.to_string()),
     }
+}
+
+// No Keychain backend off macOS yet (ADR-0006 is macOS-first). Report no token so
+// get_token stays infallible and the cycle takes its clean no-token arm, rather
+// than the unregistered-store error throwing past it (only the macOS store is
+// registered in setup). One arm per future OS, mirroring register_keychain_store.
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+fn get_token() -> Result<Option<String>, String> {
+    Ok(None)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
