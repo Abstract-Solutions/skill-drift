@@ -214,6 +214,8 @@ Deno.test("relativeTime buckets ages and floors sub-minute to 'just now'", () =>
   assertEquals(ago(2 * 60 * 60_000), "2h ago");
   assertEquals(ago(3 * 24 * 60 * 60_000), "3d ago");
   assertEquals(ago(45 * 24 * 60 * 60_000), "1mo ago");
+  // Days 360–364: month 12 must read "12mo ago", never a floored "0y ago".
+  assertEquals(ago(360 * 24 * 60 * 60_000), "12mo ago");
   assertEquals(ago(400 * 24 * 60 * 60_000), "1y ago");
 });
 
