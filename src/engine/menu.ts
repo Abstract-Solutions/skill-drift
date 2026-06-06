@@ -157,7 +157,6 @@ const SEC_PER_MIN = 60;
 const MIN_PER_HOUR = 60;
 const HOURS_PER_DAY = 24;
 const DAYS_PER_MONTH = 30; // coarse; the menu wants an approximate age, not a calendar
-const MONTHS_PER_YEAR = 12;
 const DAYS_PER_YEAR = 365;
 
 export function relativeTime(iso: string, now: Date = new Date()): string {
@@ -173,6 +172,8 @@ export function relativeTime(iso: string, now: Date = new Date()): string {
   const day = Math.floor(hr / HOURS_PER_DAY);
   if (day < DAYS_PER_MONTH) return `${day}d ago`;
   const mo = Math.floor(day / DAYS_PER_MONTH);
-  if (mo < MONTHS_PER_YEAR) return `${mo}mo ago`;
+  // Gate on days, not months: 365 ≠ 12×30, so month 12 (days 360–364) must still
+  // read "12mo ago" instead of falling through to a floored "0y ago".
+  if (day < DAYS_PER_YEAR) return `${mo}mo ago`;
   return `${Math.floor(day / DAYS_PER_YEAR)}y ago`;
 }
