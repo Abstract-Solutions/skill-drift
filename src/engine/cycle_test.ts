@@ -139,6 +139,22 @@ Deno.test("runPollCycle: empty-string token → no-token", async () => {
   assertEquals(out.kind, "no-token");
 });
 
+Deno.test("runPollCycle: a getToken rejection → no-access, never polls", async () => {
+  const raw = manifest({ alpha: ghSkill("o/r", "skills/alpha", "Ha") });
+  let built = false;
+  const out = await runPollCycle(deps(raw, {
+    getToken: () => Promise.reject(new Error("keychain locked")),
+    makeFetchers: () => {
+      built = true;
+      return explodingFetchers;
+    },
+  }));
+
+  assertEquals(out.kind, "no-access");
+  assertEquals(built, false); // a token-read failure short-circuits before the poll
+  assertEquals(out.menu.rows.at(-1)?.kind, "quit"); // still a quittable frame
+});
+
 Deno.test("runPollCycle: installed + token → ok with assembled statuses, snapshot saved", async () => {
   const raw = manifest({ alpha: ghSkill("o/r", "skills/alpha", "Ha") });
   const fetchers = fetchersFor("HEAD", { HEAD: [dir("alpha", "Ha")] }, []);
