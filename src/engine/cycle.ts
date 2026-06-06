@@ -1,8 +1,8 @@
 // The Poll Cycle as a deep module (ADR-0010): one pass that reads the Manifest,
 // derives the Watched Repos, polls GitHub for real, classifies every Skill, writes
 // the snapshot, builds the menu, and returns one PollOutcome the view renders.
-// This slice (#5) lands Phase D — the Keychain token, the live poll, the Behind
-// count, and the snapshot write; the per-Skill menu rows follow (#6).
+// #5 landed the live poll + snapshot; #6 renders the per-Skill freshness menu
+// (buildMenuModel) and folds a token-read failure into the no-access outcome.
 
 import {
   assembleSkillStatuses,
@@ -11,22 +11,22 @@ import {
   type SkillStatus,
 } from "./poll.ts";
 import { deriveWatchedRepos, parseManifest } from "./manifest.ts";
-import {
-  installedMenu,
-  malformedMenu,
-  type MenuModel,
-  nothingInstalledMenu,
-  noTokenMenu,
-} from "./menu.ts";
+import { buildMenuModel, type MenuModel } from "./menu.ts";
 
-// Per-poll outcome (ADR-0010), each carrying a built MenuModel. `ok` also carries
-// the Behind count (the badge) and the per-Skill statuses (#6 renders them as menu
-// rows; this slice logs them). `no-token` short-circuits before the poll.
-export type PollOutcome =
-  | { kind: "ok"; behind: number; statuses: SkillStatus[]; menu: MenuModel }
-  | { kind: "no-manifest"; menu: MenuModel }
-  | { kind: "no-token"; menu: MenuModel }
-  | { kind: "malformed"; menu: MenuModel };
+// The classified result of one cycle — the data a Poll Outcome carries before its
+// menu is built (ADR-0010). `ok` carries the Behind count (the badge), the per-Skill
+// statuses (the menu rows), and the poll time (the menu's updated-header). The token
+// edge owns three outcomes: no-token (absent), no-access (unreadable), then a poll.
+export type PollResult =
+  | { kind: "ok"; behind: number; statuses: SkillStatus[]; polledAt: string }
+  | { kind: "no-manifest" }
+  | { kind: "no-token" }
+  | { kind: "no-access" }
+  | { kind: "malformed" };
+
+// What runPollCycle returns: each result with its rendered menu attached — the
+// discriminated union the view renders (renderMenu(out.menu) + setBadge).
+export type PollOutcome = PollResult & { menu: MenuModel };
 
 // The last-poll snapshot the cycle persists (ADR-0008): polledAt plus the whole
 // SkillStatus[] (each Behind Skill's commits included) so a later popover paints
@@ -50,28 +50,40 @@ export interface CycleDeps {
 }
 
 export async function runPollCycle(deps: CycleDeps): Promise<PollOutcome> {
+  // One clock per cycle: it stamps the snapshot and the menu's updated-header, and
+  // every outcome renders its menu from the same instant.
+  const now = deps.now();
+  const outcome = (result: PollResult): PollOutcome => ({
+    ...result,
+    menu: buildMenuModel(result, { now }),
+  });
+
   const raw = await deps.readManifest();
   // Absent or empty file → Nothing installed (CONTEXT.md), never malformed.
   if (raw === null || raw.trim() === "") {
-    return { kind: "no-manifest", menu: nothingInstalledMenu() };
-  }
-  const manifest = parseManifest(raw);
-  if (manifest === null) {
-    return { kind: "malformed", menu: malformedMenu() };
-  }
-  const repos = deriveWatchedRepos(manifest);
-  // Parsed but no GitHub Skills → still Nothing installed (CONTEXT.md).
-  if (repos.length === 0) {
-    return { kind: "no-manifest", menu: nothingInstalledMenu() };
+    return outcome({ kind: "no-manifest" });
   }
 
-  // No token → short-circuit to "add a token" with no poll (ADR-0010 revises
-  // ADR-0006's unauth degrade to a non-polling prompt; the degrade is deferred).
-  // Empty string is no token too — a blank Keychain item shouldn't poll unauth.
-  const token = await deps.getToken();
-  if (!token) {
-    return { kind: "no-token", menu: noTokenMenu() };
+  const manifest = parseManifest(raw);
+  if (manifest === null) return outcome({ kind: "malformed" });
+
+  const repos = deriveWatchedRepos(manifest);
+  // Parsed but no GitHub Skills → still Nothing installed (CONTEXT.md).
+  if (repos.length === 0) return outcome({ kind: "no-manifest" });
+
+  // The token is the one edge whose every result the cycle owns (ADR-0010): a
+  // rejection → no-access (Keychain locked / access denied — user-actionable, a
+  // deliberate exception to "edge fault keeps the last menu"), null → no-token
+  // (prompt to add one), a value → poll. Empty string is no token too — a blank
+  // Keychain item shouldn't poll unauthenticated. (ADR-0010 revises ADR-0006's
+  // unauth degrade to a non-polling prompt; that degrade stays deferred.)
+  let token: string | null;
+  try {
+    token = await deps.getToken();
+  } catch {
+    return outcome({ kind: "no-access" });
   }
+  if (!token) return outcome({ kind: "no-token" });
 
   const statuses = await assembleSkillStatuses(repos, {
     ...deps.makeFetchers(token),
@@ -82,10 +94,10 @@ export async function runPollCycle(deps: CycleDeps): Promise<PollOutcome> {
   const behind = statuses.filter((s) => s.state.kind === "behind").length;
 
   // The cycle owns the snapshot write (ADR-0010), symmetric with the BaselineCache
-  // write assembleSkillStatuses already makes — persistence in one place.
-  await deps.saveSnapshot({ polledAt: deps.now().toISOString(), statuses });
+  // write assembleSkillStatuses already makes — persistence in one place. The same
+  // poll time stamps the snapshot and the menu's updated-header.
+  const polledAt = now.toISOString();
+  await deps.saveSnapshot({ polledAt, statuses });
 
-  // Menu stays the watched-count frame this slice (installedMenu); #6 swaps in the
-  // per-Skill freshness rows built from these statuses.
-  return { kind: "ok", behind, statuses, menu: installedMenu(repos) };
+  return outcome({ kind: "ok", behind, statuses, polledAt });
 }

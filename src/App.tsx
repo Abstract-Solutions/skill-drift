@@ -43,6 +43,9 @@ function App() {
         case "no-token":
           console.warn("no github token — add one to the Keychain");
           break;
+        case "no-access":
+          console.error("github token unreadable — keychain locked or access denied");
+          break;
         case "malformed":
           console.error("manifest malformed");
           break;
