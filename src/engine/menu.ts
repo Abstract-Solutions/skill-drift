@@ -19,11 +19,11 @@ export type MenuRow =
   | { kind: "submenu"; label: string; rows: readonly MenuRow[] }
   | { kind: "quit"; label: string };
 
-// Leading glyph per Freshness state. Saturated dots (🔴🟠🟢) read on both light and
-// dark menu bars and map the freshness gradient most→least actionable; the two
-// non-gradient states get a distinct shape (❌ gone, ⚠️ transient fault). Pure
-// presentation, kept here as data so tests pin label structure via this map, not
-// raw codepoints (ADR-0010: menu policy as data).
+// Leading glyph per Freshness state. Saturated dots read on both light and dark menu
+// bars and map the freshness gradient most→least actionable (Behind, Diverged,
+// Current); the two non-gradient states get a distinct shape — Removed is gone, Error
+// a transient fault. Pure presentation, kept here as data so tests pin label structure
+// via this map, not raw codepoints (ADR-0010: menu policy as data).
 export const STATE_GLYPH: Record<SkillState["kind"], string> = {
   behind: "🔴",
   diverged: "🟠",
@@ -110,7 +110,7 @@ function behindRow(s: SkillStatus, now: Date): MenuRow {
 }
 
 // Diverged / Removed / Error have no drill-down yet — one disabled line each, the
-// state word spelled after the name (the glyph already leads). The kind is the word.
+// state kind spelled after the name (the glyph already leads).
 function leafRow(s: SkillStatus): MenuRow {
   return {
     kind: "item",
