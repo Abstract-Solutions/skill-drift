@@ -1,13 +1,14 @@
 // The tray menu as data: platform.ts walks a MenuModel into native
 // @tauri-apps/api/menu items, keeping menu policy off the native edge (ADR-0009).
-// buildMenuModel is the pure transform from a PollResult to that data (ADR-0010):
+// buildMenuModel is the pure transform from a PollOutcome to that data (ADR-0010,
+// ADR-0011 — the view composes it; the cycle no longer attaches a menu):
 // the actionable-first ordering, the state glyphs, the Behind-count label, the
 // Watched Commit submenus, the Current collapse, and the non-ok frames are all
 // decided here and asserted as data, never at the edge.
 
 import type { Commit } from "./github.ts";
 import type { SkillState, SkillStatus } from "./poll.ts";
-import type { PollResult } from "./cycle.ts";
+import type { PollOutcome } from "./cycle.ts";
 
 export type MenuModel = { readonly rows: readonly MenuRow[] };
 
@@ -34,7 +35,7 @@ export const STATE_GLYPH: Record<SkillState["kind"], string> = {
 // Headline per non-ok Poll Outcome (CONTEXT.md). no-access is distinct from
 // no-token: the token couldn't be read (Keychain locked / access denied), not just
 // absent — a user-actionable fault, never a silent freeze at the last menu (#6).
-const FRAME_HEADER: Record<Exclude<PollResult["kind"], "ok">, string> = {
+const FRAME_HEADER: Record<Exclude<PollOutcome["kind"], "ok">, string> = {
   "no-manifest": "skill-drift — no skills installed",
   "no-token": "skill-drift — add a GitHub token",
   "malformed": "skill-drift — manifest unreadable",
@@ -49,13 +50,15 @@ const LEAF_ORDER = ["diverged", "removed", "error"] as const;
 // rows; every other outcome is a framed headline. now stamps the ok updated-header
 // and the Watched Commit ages.
 export function buildMenuModel(
-  result: PollResult,
+  outcome: PollOutcome,
   { now }: { now: Date },
 ): MenuModel {
-  if (result.kind !== "ok") return framedMenu(FRAME_HEADER[result.kind]);
+  if (outcome.kind !== "ok") return framedMenu(FRAME_HEADER[outcome.kind]);
 
-  const byKind = groupByKind(result.statuses);
-  const updated = `skill-drift — updated ${relativeTime(result.polledAt, now)}`;
+  const byKind = groupByKind(outcome.statuses);
+  const updated = `skill-drift — updated ${
+    relativeTime(outcome.polledAt, now)
+  }`;
   const rows: MenuRow[] = [
     { kind: "header", label: updated },
     { kind: "separator" },

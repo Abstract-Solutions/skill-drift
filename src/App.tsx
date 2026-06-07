@@ -12,15 +12,15 @@ import {
 import { makeFetchers } from "./engine/github.ts";
 import { makePollScheduler } from "./engine/schedule.ts";
 import { runPollCycle } from "./engine/cycle.ts";
-import { bootMenu } from "./engine/menu.ts";
+import { bootMenu, buildMenuModel } from "./engine/menu.ts";
 
 function App() {
   useEffect(() => {
     // The Poll Cycle, coalesced (ADR-0010): the mount poll below and the Rust
     // poll-tick both drive it, and the interval can tick mid-cycle — the
     // scheduler keeps at most one run in flight plus one trailing. Each run reads
-    // the Manifest, derives the Watched Repos, and returns a PollOutcome the view
-    // renders (menu + badge); the cycle's menu replaces the old mount placeholder.
+    // the Manifest, derives the Watched Repos, and returns a PollOutcome; the view
+    // builds the menu from it (buildMenuModel) and the badge, then renders (ADR-0011).
     const scheduler = makePollScheduler(async () => {
       const out = await runPollCycle({
         readManifest,
@@ -50,8 +50,9 @@ function App() {
           console.error("manifest malformed");
           break;
       }
-      await renderMenu(out.menu);
-      // Only an `ok` poll has a Behind count; the other outcomes clear the badge.
+      // The view composes presentation from the pure outcome (ADR-0011): the tray
+      // menu via buildMenuModel, the badge from the Behind count (0 on any non-ok).
+      await renderMenu(buildMenuModel(out, { now: now() }));
       await setBadge(out.kind === "ok" ? out.behind : 0);
     });
 

@@ -19,6 +19,9 @@ them with the Rust commands (ADR-0007), the store (ADR-0008), and the menu API
 Status: accepted. Extends ADR-0002 (logic in TS) to the orchestration; the TS
 counterpart to ADR-0007's Rust commands; revises ADR-0006's no-token degrade to a
 non-polling short-circuit (the unauthenticated degrade is deferred — issue #5).
+Revised by ADR-0011: the outcome no longer carries a built `MenuModel` and the view
+is no longer `renderMenu(out.menu)` — the view composes the menu from a render-free
+`PollOutcome`. The deep-module decision otherwise stands.
 
 ## Shape
 

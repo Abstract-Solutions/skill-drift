@@ -97,6 +97,12 @@ No GitHub token is available, so the cycle prompts to add one instead of polling
 (A later degrade may poll unauthenticated instead — ADR-0006.)
 _Avoid_: unauthenticated, logged-out.
 
+**No access**:
+A GitHub token exists but couldn't be read — the Keychain is locked or denied
+access. Distinct from **No token**: the secret is there, the read failed. The tray
+shows a distinct frame instead of freezing on the last menu.
+_Avoid_: no token, unauthorized.
+
 **Malformed**:
 The Manifest is present but unparseable or wrong-shaped — surfaced as its own
 state, not a crash.
