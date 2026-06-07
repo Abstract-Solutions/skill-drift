@@ -152,7 +152,6 @@ Deno.test("runPollCycle: a getToken rejection → no-access, never polls", async
 
   assertEquals(out.kind, "no-access");
   assertEquals(built, false); // a token-read failure short-circuits before the poll
-  assertEquals(out.menu.rows.at(-1)?.kind, "quit"); // still a quittable frame
 });
 
 Deno.test("runPollCycle: installed + token → ok with assembled statuses, snapshot saved", async () => {

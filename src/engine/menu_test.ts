@@ -7,7 +7,7 @@ import {
   relativeTime,
   STATE_GLYPH,
 } from "./menu.ts";
-import type { PollResult } from "./cycle.ts";
+import type { PollOutcome } from "./cycle.ts";
 import type { SkillStatus } from "./poll.ts";
 import type { Commit } from "./github.ts";
 
@@ -34,7 +34,7 @@ const commit = (
 const ok = (
   statuses: SkillStatus[],
   polledAt = NOW.toISOString(),
-): PollResult => ({
+): PollOutcome => ({
   kind: "ok",
   behind: statuses.filter((s) => s.state.kind === "behind").length,
   statuses,
@@ -167,7 +167,7 @@ Deno.test("buildMenuModel header reads 'just now' right after a poll", () => {
 });
 
 Deno.test("buildMenuModel frames each non-ok outcome with its headline", () => {
-  const frame = (kind: Exclude<PollResult["kind"], "ok">) =>
+  const frame = (kind: Exclude<PollOutcome["kind"], "ok">) =>
     header(buildMenuModel({ kind }, { now: NOW }));
   assertEquals(frame("no-manifest"), "skill-drift — no skills installed");
   assertEquals(frame("no-token"), "skill-drift — add a GitHub token");
