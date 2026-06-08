@@ -7,8 +7,8 @@
 import {
   assembleSkillStatuses,
   type BaselineCache,
-  type Fetchers,
   type SkillStatus,
+  type SourceRepoReader,
 } from "./poll.ts";
 import { deriveWatchedRepos, parseManifest } from "./manifest.ts";
 
@@ -34,12 +34,12 @@ export interface Snapshot {
 
 // The cycle's native ports (ADR-0010): edges the engine names and platform.ts
 // satisfies with the Rust commands + app-private state, while tests inject fakes.
-// getToken yields the Keychain PAT or null (ADR-0006); makeFetchers builds the
-// GitHub fetchers from that token; now stamps the snapshot.
+// getToken yields the Keychain PAT or null (ADR-0006); makeReader builds the
+// Source Repo reader from that token; now stamps the snapshot.
 export interface CycleDeps {
   readManifest(): Promise<string | null>;
   getToken(): Promise<string | null>;
-  makeFetchers(token: string): Fetchers;
+  makeReader(token: string): SourceRepoReader;
   cache: BaselineCache;
   saveSnapshot(snapshot: Snapshot): Promise<void>;
   now(): Date;
@@ -71,7 +71,7 @@ export async function runPollCycle(deps: CycleDeps): Promise<PollOutcome> {
   if (!token) return { kind: "no-token" };
 
   const statuses = await assembleSkillStatuses(repos, {
-    ...deps.makeFetchers(token),
+    reader: deps.makeReader(token),
     cache: deps.cache,
   });
   // Badge = how many Skills are Behind (CONTEXT.md), one per Skill needing

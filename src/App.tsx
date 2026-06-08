@@ -9,7 +9,7 @@ import {
   saveSnapshot,
   setBadge,
 } from "./platform.ts";
-import { makeFetchers } from "./engine/github.ts";
+import { makeHttpReader } from "./engine/github.ts";
 import { makePollScheduler } from "./engine/schedule.ts";
 import { runPollCycle } from "./engine/cycle.ts";
 import { bootMenu, buildMenuModel } from "./engine/menu.ts";
@@ -25,7 +25,7 @@ function App() {
       const out = await runPollCycle({
         readManifest,
         getToken,
-        makeFetchers,
+        makeReader: makeHttpReader,
         cache,
         saveSnapshot,
         now,
