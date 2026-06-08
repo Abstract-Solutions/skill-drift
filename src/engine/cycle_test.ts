@@ -1,7 +1,10 @@
 import { assertEquals } from "@std/assert";
 import { type CycleDeps, runPollCycle, type Snapshot } from "./cycle.ts";
-import { type Fetchers, makeMemoryCache } from "./poll.ts";
-import type { Commit, FolderEntry } from "./github.ts";
+import {
+  makeMemoryCache,
+  makeMemoryReader,
+  type SourceRepoReader,
+} from "./poll.ts";
 
 // Fixed clock so the snapshot's polledAt is assertable.
 const NOW = new Date("2026-06-04T12:00:00.000Z");
@@ -16,54 +19,23 @@ const ghSkill = (source: string, skillPath: string, hash: string) => ({
   skillFolderHash: hash,
 });
 
-const c = (sha: string): Commit => ({
-  sha,
-  message: `msg ${sha}`,
-  author: "Ada",
-  date: "",
-});
-
-const dir = (name: string, sha: string): FolderEntry => ({
-  name,
-  sha,
-  type: "dir",
-});
-
-// Fetchers that throw if touched — proves a short-circuit never polled.
+// A reader whose every method throws — proves a short-circuit never polled.
 const boom = (what: string): never => {
   throw new Error(`unexpected ${what}`);
 };
-const explodingFetchers: Fetchers = {
+const explodingReader: SourceRepoReader = {
   fetchCommit: () => boom("fetchCommit"),
   fetchFolderTree: () => boom("fetchFolderTree"),
   fetchPathCommits: () => boom("fetchPathCommits"),
 };
 
-// Canned fetchers: one HEAD sha, a folder listing per ref, one path-commits list.
-function fetchersFor(
-  headSha: string,
-  treeByRef: Record<string, FolderEntry[]>,
-  commits: Commit[],
-): Fetchers {
-  return {
-    fetchCommit: () =>
-      Promise.resolve({
-        ok: true,
-        commit: { sha: headSha, message: "", author: "", date: "" },
-      }),
-    fetchFolderTree: (_o, _r, _d, ref) =>
-      Promise.resolve({ ok: true, entries: treeByRef[ref] ?? [] }),
-    fetchPathCommits: () => Promise.resolve({ ok: true, commits }),
-  };
-}
-
-function spyMakeFetchers(fetchers: Fetchers) {
+function spyMakeReader(reader: SourceRepoReader) {
   const tokens: string[] = [];
   return {
     tokens,
-    makeFetchers: (token: string) => {
+    makeReader: (token: string) => {
       tokens.push(token);
-      return fetchers;
+      return reader;
     },
   };
 }
@@ -79,13 +51,13 @@ function spySaveSnapshot() {
   };
 }
 
-// Full deps with safe defaults (token present, fetchers that explode if reached);
+// Full deps with safe defaults (token present, a reader that explodes if reached);
 // each test overrides only what it exercises.
 function deps(raw: string | null, over: Partial<CycleDeps> = {}): CycleDeps {
   return {
     readManifest: () => Promise.resolve(raw),
     getToken: () => Promise.resolve("tok"),
-    makeFetchers: () => explodingFetchers,
+    makeReader: () => explodingReader,
     cache: makeMemoryCache(),
     saveSnapshot: () => Promise.resolve(),
     now: () => NOW,
@@ -121,14 +93,14 @@ Deno.test("runPollCycle: no token → no-token, never polls", async () => {
   let built = false;
   const out = await runPollCycle(deps(raw, {
     getToken: () => Promise.resolve(null),
-    makeFetchers: () => {
+    makeReader: () => {
       built = true;
-      return explodingFetchers;
+      return explodingReader;
     },
   }));
 
   assertEquals(out.kind, "no-token");
-  assertEquals(built, false); // short-circuited before building fetchers
+  assertEquals(built, false); // short-circuited before building the reader
 });
 
 Deno.test("runPollCycle: empty-string token → no-token", async () => {
@@ -144,9 +116,9 @@ Deno.test("runPollCycle: a getToken rejection → no-access, never polls", async
   let built = false;
   const out = await runPollCycle(deps(raw, {
     getToken: () => Promise.reject(new Error("keychain locked")),
-    makeFetchers: () => {
+    makeReader: () => {
       built = true;
-      return explodingFetchers;
+      return explodingReader;
     },
   }));
 
@@ -156,13 +128,16 @@ Deno.test("runPollCycle: a getToken rejection → no-access, never polls", async
 
 Deno.test("runPollCycle: installed + token → ok with assembled statuses, snapshot saved", async () => {
   const raw = manifest({ alpha: ghSkill("o/r", "skills/alpha", "Ha") });
-  const fetchers = fetchersFor("HEAD", { HEAD: [dir("alpha", "Ha")] }, []);
-  const { makeFetchers, tokens } = spyMakeFetchers(fetchers);
+  const { reader } = makeMemoryReader({
+    source: "o/r",
+    history: [{ sha: "c1", folders: { "skills/alpha": "Ha" } }],
+  });
+  const { makeReader, tokens } = spyMakeReader(reader);
   const { saveSnapshot, saved } = spySaveSnapshot();
 
   const out = await runPollCycle(deps(raw, {
     getToken: () => Promise.resolve("tok-xyz"),
-    makeFetchers,
+    makeReader,
     saveSnapshot,
   }));
 
@@ -177,7 +152,7 @@ Deno.test("runPollCycle: installed + token → ok with assembled statuses, snaps
     },
   ]);
   assertEquals(out.behind, 0);
-  assertEquals(tokens, ["tok-xyz"]); // fetchers built with the resolved token
+  assertEquals(tokens, ["tok-xyz"]); // the reader built with the resolved token
   assertEquals(saved, [{
     polledAt: NOW.toISOString(),
     statuses: out.statuses,
@@ -186,25 +161,22 @@ Deno.test("runPollCycle: installed + token → ok with assembled statuses, snaps
 
 Deno.test("runPollCycle: a Behind skill counts 1 toward the badge", async () => {
   const raw = manifest({ alpha: ghSkill("o/r", "skills/alpha", "H0") });
-  // HEAD folder differs from the installed hash → walk; baseline is c1 (behind 2).
-  const fetchers = fetchersFor("HEAD", {
-    HEAD: [dir("alpha", "H3")],
-    c3: [dir("alpha", "H3")],
-    c2: [dir("alpha", "H2")],
-    c1: [dir("alpha", "H0")],
-  }, [c("c3"), c("c2"), c("c1")]);
+  // alpha's folder advances H0 → H2 → H3 (HEAD); installed at H0 → behind by 2.
+  const { reader } = makeMemoryReader({
+    source: "o/r",
+    history: [
+      { sha: "c1", folders: { "skills/alpha": "H0" } },
+      { sha: "c2", folders: { "skills/alpha": "H2" } },
+      { sha: "c3", folders: { "skills/alpha": "H3" } },
+    ],
+  });
 
-  const out = await runPollCycle(
-    deps(raw, { makeFetchers: () => fetchers }),
-  );
+  const out = await runPollCycle(deps(raw, { makeReader: () => reader }));
 
   assertEquals(out.kind, "ok");
   if (out.kind !== "ok") return;
   assertEquals(out.behind, 1); // one Skill Behind, though it's behind by 2 commits
-  assertEquals(out.statuses[0].state, {
-    kind: "behind",
-    behindBy: 2,
-    baseline: "c1",
-    commits: [c("c3"), c("c2")],
-  });
+  const st = out.statuses[0].state;
+  assertEquals(st.kind, "behind"); // commit detail is poll_test's concern
+  if (st.kind === "behind") assertEquals(st.behindBy, 2);
 });

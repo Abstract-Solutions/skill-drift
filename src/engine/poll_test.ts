@@ -1,14 +1,13 @@
 import { assertEquals } from "@std/assert";
 import {
   assembleSkillStatuses,
-  type BaselineCache,
   type FetchCommit,
-  type FetchFolderTree,
-  type FetchPathCommits,
   makeMemoryCache,
+  makeMemoryReader,
   pollRepos,
+  type SourceRepoReader,
 } from "./poll.ts";
-import type { Commit, FolderEntry } from "./github.ts";
+import type { Commit } from "./github.ts";
 import type { WatchedRepo } from "./manifest.ts";
 
 const commit = (sha: string) => ({
@@ -102,7 +101,7 @@ Deno.test("makeMemoryCache: miss is undefined, a set value round-trips, null is 
   assertEquals(await cache.get("o/r", "skills/a", "h"), null);
 });
 
-// --- assembleSkillStatuses ---
+// --- assembleSkillStatuses fixtures ---
 
 const skill = (name: string, hash: string) => ({
   name,
@@ -115,72 +114,109 @@ const repoWith = (
   skills: ReturnType<typeof skill>[],
 ): WatchedRepo => ({ source, branch: "main", skills });
 
-const c = (sha: string): Commit => ({
+// makeMemoryReader's Commit projection: the sha is what tests assert on, the rest
+// defaults empty.
+const wc = (sha: string): Commit => ({
   sha,
-  message: `msg ${sha}`,
-  author: "Ada",
+  message: "",
+  author: "",
   date: "",
 });
 
-const dir = (name: string, sha: string): FolderEntry => ({
-  name,
-  sha,
-  type: "dir",
+// --- makeMemoryReader ---
+
+Deno.test("makeMemoryReader: fetchCommit returns the newest commit as HEAD", async () => {
+  const { reader } = makeMemoryReader({
+    source: "o/r",
+    history: [
+      { sha: "c1", folders: { "skills/alpha": "H0" } },
+      { sha: "c2", folders: { "skills/alpha": "H1" } },
+    ],
+  });
+  assertEquals(await reader.fetchCommit("o", "r", "main"), {
+    ok: true,
+    commit: wc("c2"),
+  });
 });
 
-const headAt = (sha: string): FetchCommit => () =>
-  Promise.resolve({
-    ok: true,
-    commit: { sha, message: "", author: "", date: "" },
+Deno.test("makeMemoryReader: fetchFolderTree lists present children, carried forward", async () => {
+  const { reader } = makeMemoryReader({
+    source: "o/r",
+    history: [
+      { sha: "c1", folders: { "skills/alpha": "Ha", "skills/beta": "Hb" } },
+      { sha: "c2", folders: { "skills/beta": "Hb2" } }, // alpha carries forward
+    ],
   });
+  assertEquals(await reader.fetchFolderTree("o", "r", "skills", "c2"), {
+    ok: true,
+    entries: [
+      { name: "alpha", sha: "Ha", type: "dir" },
+      { name: "beta", sha: "Hb2", type: "dir" },
+    ],
+  });
+});
 
-// Folder listing keyed by ref (the parent dir's children at that ref). Records
-// every ref asked for, so tests can assert dedup and that no walk happened.
-function fakeTree(entriesByRef: Record<string, FolderEntry[]>) {
-  const refs: string[] = [];
-  const fetchFolderTree: FetchFolderTree = (_o, _r, _d, ref) => {
-    refs.push(ref);
-    return Promise.resolve({ ok: true, entries: entriesByRef[ref] ?? [] });
-  };
-  return { fetchFolderTree, refs };
-}
+Deno.test("makeMemoryReader: fetchFolderTree omits a removed folder", async () => {
+  const { reader } = makeMemoryReader({
+    source: "o/r",
+    history: [
+      { sha: "c1", folders: { "skills/alpha": "Ha" } },
+      { sha: "c2", folders: { "skills/alpha": null } }, // removed at HEAD
+    ],
+  });
+  assertEquals(await reader.fetchFolderTree("o", "r", "skills", "c2"), {
+    ok: true,
+    entries: [],
+  });
+});
 
-function fakeCommits(commits: Commit[]) {
-  let calls = 0;
-  const fetchPathCommits: FetchPathCommits = () => {
-    calls++;
-    return Promise.resolve({ ok: true, commits });
-  };
-  return { fetchPathCommits, calls: () => calls };
-}
+Deno.test("makeMemoryReader: fetchPathCommits returns touching commits newest-first", async () => {
+  const { reader } = makeMemoryReader({
+    source: "o/r",
+    history: [
+      { sha: "c1", folders: { "skills/alpha": "H0" } },
+      { sha: "c2", folders: { "skills/beta": "Hb" } }, // doesn't touch alpha
+      { sha: "c3", folders: { "skills/alpha": "H1" } },
+    ],
+  });
+  assertEquals(await reader.fetchPathCommits("o", "r", "skills/alpha", "c3"), {
+    ok: true,
+    commits: [wc("c3"), wc("c1")], // c2 skipped — it didn't change alpha
+  });
+});
 
-function memCache() {
-  const m = new Map<string, string | null>();
-  const k = (s: string, f: string, h: string) => `${s}|${f}|${h}`;
-  const cache: BaselineCache = {
-    get: (s, f, h) =>
-      Promise.resolve(
-        m.has(k(s, f, h)) ? m.get(k(s, f, h)) ?? null : undefined,
-      ),
-    set: (s, f, h, v) => {
-      m.set(k(s, f, h), v);
-      return Promise.resolve();
-    },
-  };
-  return { cache, store: m, k };
-}
+Deno.test("makeMemoryReader: serves only its source; another repo 404s", async () => {
+  const { reader } = makeMemoryReader({
+    source: "o/r",
+    history: [{ sha: "c1", folders: { "skills/alpha": "Ha" } }],
+  });
+  const res = await reader.fetchCommit("other", "repo", "main");
+  assertEquals(res.ok, false);
+  if (!res.ok) assertEquals(res.status, 404);
+});
+
+Deno.test("makeMemoryReader: records listed refs and path-commits calls", async () => {
+  const { reader, calls } = makeMemoryReader({
+    source: "o/r",
+    history: [{ sha: "c1", folders: { "skills/alpha": "Ha" } }],
+  });
+  await reader.fetchFolderTree("o", "r", "skills", "c1");
+  await reader.fetchPathCommits("o", "r", "skills/alpha", "c1");
+  assertEquals(calls, { listedRefs: ["c1"], pathCommitsCalls: 1 });
+});
+
+// --- assembleSkillStatuses ---
 
 Deno.test("assembleSkillStatuses marks a skill current when its folder matches HEAD", async () => {
   const repos = [repoWith("o/r", [skill("alpha", "H")])];
-  const { fetchFolderTree } = fakeTree({ HEAD: [dir("alpha", "H")] });
-  const { fetchPathCommits, calls } = fakeCommits([]);
-  const { cache } = memCache();
+  const { reader, calls } = makeMemoryReader({
+    source: "o/r",
+    history: [{ sha: "c1", folders: { "skills/alpha": "H" } }],
+  });
 
   const rows = await assembleSkillStatuses(repos, {
-    fetchCommit: headAt("HEAD"),
-    fetchFolderTree,
-    fetchPathCommits,
-    cache,
+    reader,
+    cache: makeMemoryCache(),
   });
 
   assertEquals(rows, [
@@ -191,230 +227,236 @@ Deno.test("assembleSkillStatuses marks a skill current when its folder matches H
       state: { kind: "current" },
     },
   ]);
-  assertEquals(calls(), 0); // no path-commits fetch for an up-to-date skill
+  assertEquals(calls.pathCommitsCalls, 0); // no path-commits fetch for an up-to-date skill
 });
 
 Deno.test("assembleSkillStatuses marks a skill removed when its folder is gone at HEAD", async () => {
   const repos = [repoWith("o/r", [skill("alpha", "H")])];
-  const { fetchFolderTree } = fakeTree({ HEAD: [dir("beta", "X")] });
-  const { fetchPathCommits, calls } = fakeCommits([]);
-  const { cache } = memCache();
+  const { reader, calls } = makeMemoryReader({
+    source: "o/r",
+    history: [{ sha: "c1", folders: { "skills/beta": "X" } }], // alpha absent
+  });
 
   const rows = await assembleSkillStatuses(repos, {
-    fetchCommit: headAt("HEAD"),
-    fetchFolderTree,
-    fetchPathCommits,
-    cache,
+    reader,
+    cache: makeMemoryCache(),
   });
 
   assertEquals(rows[0].state, { kind: "removed" });
-  assertEquals(calls(), 0);
+  assertEquals(calls.pathCommitsCalls, 0);
 });
 
 Deno.test("assembleSkillStatuses resolves a Behind skill and caches the baseline", async () => {
   const repos = [repoWith("o/r", [skill("alpha", "H0")])];
-  // folder sha per ref: HEAD/c3 current (H3), c2 -> H2, c1 -> H0 (the baseline).
-  const { fetchFolderTree } = fakeTree({
-    HEAD: [dir("alpha", "H3")],
-    c3: [dir("alpha", "H3")],
-    c2: [dir("alpha", "H2")],
-    c1: [dir("alpha", "H0")],
+  // alpha's folder sha per commit: c1 H0 (the baseline), c2 H2, c3/HEAD H3.
+  const { reader } = makeMemoryReader({
+    source: "o/r",
+    history: [
+      { sha: "c1", folders: { "skills/alpha": "H0" } },
+      { sha: "c2", folders: { "skills/alpha": "H2" } },
+      { sha: "c3", folders: { "skills/alpha": "H3" } },
+    ],
   });
-  const { fetchPathCommits } = fakeCommits([c("c3"), c("c2"), c("c1")]);
-  const { cache, store, k } = memCache();
+  const cache = makeMemoryCache();
 
-  const rows = await assembleSkillStatuses(repos, {
-    fetchCommit: headAt("HEAD"),
-    fetchFolderTree,
-    fetchPathCommits,
-    cache,
-  });
+  const rows = await assembleSkillStatuses(repos, { reader, cache });
 
   assertEquals(rows[0].state, {
     kind: "behind",
     behindBy: 2,
     baseline: "c1",
-    commits: [c("c3"), c("c2")],
+    commits: [wc("c3"), wc("c2")],
   });
-  assertEquals(store.get(k("o/r", "skills/alpha", "H0")), "c1");
+  assertEquals(await cache.get("o/r", "skills/alpha", "H0"), "c1");
 });
 
 Deno.test("assembleSkillStatuses uses a cached baseline without walking folder history", async () => {
   const repos = [repoWith("o/r", [skill("alpha", "H0")])];
-  const { fetchFolderTree, refs } = fakeTree({ HEAD: [dir("alpha", "H3")] });
-  const { fetchPathCommits } = fakeCommits([c("c3"), c("c2"), c("c1")]);
-  const { cache, store, k } = memCache();
-  store.set(k("o/r", "skills/alpha", "H0"), "c1"); // already resolved
-
-  const rows = await assembleSkillStatuses(repos, {
-    fetchCommit: headAt("HEAD"),
-    fetchFolderTree,
-    fetchPathCommits,
-    cache,
+  const { reader, calls } = makeMemoryReader({
+    source: "o/r",
+    history: [
+      { sha: "c1", folders: { "skills/alpha": "H0" } },
+      { sha: "c2", folders: { "skills/alpha": "H2" } },
+      { sha: "c3", folders: { "skills/alpha": "H3" } },
+    ],
   });
+  const cache = makeMemoryCache();
+  await cache.set("o/r", "skills/alpha", "H0", "c1"); // already resolved
+
+  const rows = await assembleSkillStatuses(repos, { reader, cache });
 
   assertEquals(rows[0].state, {
     kind: "behind",
     behindBy: 2,
     baseline: "c1",
-    commits: [c("c3"), c("c2")],
+    commits: [wc("c3"), wc("c2")],
   });
-  assertEquals(refs, ["HEAD"]); // only the HEAD listing — no per-commit walk
+  assertEquals(calls.listedRefs, ["c3"]); // only the HEAD listing — no per-commit walk
 });
 
 Deno.test("assembleSkillStatuses marks a skill diverged when the hash isn't in history", async () => {
   const repos = [repoWith("o/r", [skill("alpha", "H0")])];
-  const { fetchFolderTree } = fakeTree({
-    HEAD: [dir("alpha", "H3")],
-    c3: [dir("alpha", "H3")],
-    c2: [dir("alpha", "H2")],
-    c1: [dir("alpha", "H1")], // none match H0
+  const { reader } = makeMemoryReader({
+    source: "o/r",
+    history: [
+      { sha: "c1", folders: { "skills/alpha": "H1" } }, // none match H0
+      { sha: "c2", folders: { "skills/alpha": "H2" } },
+      { sha: "c3", folders: { "skills/alpha": "H3" } },
+    ],
   });
-  const { fetchPathCommits } = fakeCommits([c("c3"), c("c2"), c("c1")]);
-  const { cache, store, k } = memCache();
+  const cache = makeMemoryCache();
 
-  const rows = await assembleSkillStatuses(repos, {
-    fetchCommit: headAt("HEAD"),
-    fetchFolderTree,
-    fetchPathCommits,
-    cache,
-  });
+  const rows = await assembleSkillStatuses(repos, { reader, cache });
 
   assertEquals(rows[0].state, { kind: "diverged" });
-  assertEquals(store.get(k("o/r", "skills/alpha", "H0")), null); // negative cached
+  assertEquals(await cache.get("o/r", "skills/alpha", "H0"), null); // negative cached
 });
 
 Deno.test("assembleSkillStatuses treats a cached null as diverged without fetching commits", async () => {
   const repos = [repoWith("o/r", [skill("alpha", "H0")])];
-  const { fetchFolderTree, refs } = fakeTree({ HEAD: [dir("alpha", "H3")] });
-  const { fetchPathCommits, calls } = fakeCommits([c("c3"), c("c2"), c("c1")]);
-  const { cache, store, k } = memCache();
-  store.set(k("o/r", "skills/alpha", "H0"), null); // known absent from history
-
-  const rows = await assembleSkillStatuses(repos, {
-    fetchCommit: headAt("HEAD"),
-    fetchFolderTree,
-    fetchPathCommits,
-    cache,
+  // HEAD differs from the installed hash (would normally walk), but the cache says
+  // the hash is known-absent — so it short-circuits to diverged.
+  const { reader, calls } = makeMemoryReader({
+    source: "o/r",
+    history: [{ sha: "c3", folders: { "skills/alpha": "H3" } }],
   });
+  const cache = makeMemoryCache();
+  await cache.set("o/r", "skills/alpha", "H0", null); // known absent from history
+
+  const rows = await assembleSkillStatuses(repos, { reader, cache });
 
   assertEquals(rows[0].state, { kind: "diverged" });
-  assertEquals(calls(), 0); // negative cache short-circuits the re-walk and re-fetch
-  assertEquals(refs, ["HEAD"]); // only the HEAD listing
+  assertEquals(calls.pathCommitsCalls, 0); // negative cache short-circuits the re-walk and re-fetch
+  assertEquals(calls.listedRefs, ["c3"]); // only the HEAD listing
 });
 
 Deno.test("assembleSkillStatuses pins the path-commits fetch to the polled HEAD sha", async () => {
   const repos = [repoWith("o/r", [skill("alpha", "H0")])];
-  const { fetchFolderTree } = fakeTree({
-    HEAD: [dir("alpha", "H3")],
-    c2: [dir("alpha", "H3")],
-    c1: [dir("alpha", "H0")],
+  const mem = makeMemoryReader({
+    source: "o/r",
+    history: [
+      { sha: "c1", folders: { "skills/alpha": "H0" } },
+      { sha: "c2", folders: { "skills/alpha": "H3" } }, // HEAD
+    ],
   });
+  // Capture the ref poll pins the path-commits fetch to.
   let passedRef: string | undefined;
-  const fetchPathCommits: FetchPathCommits = (_o, _r, _p, ref) => {
-    passedRef = ref;
-    return Promise.resolve({ ok: true, commits: [c("c2"), c("c1")] });
+  const reader: SourceRepoReader = {
+    ...mem.reader,
+    fetchPathCommits: (o, r, p, ref) => {
+      passedRef = ref;
+      return mem.reader.fetchPathCommits(o, r, p, ref);
+    },
   };
-  const { cache } = memCache();
 
-  await assembleSkillStatuses(repos, {
-    fetchCommit: headAt("HEAD"),
-    fetchFolderTree,
-    fetchPathCommits,
-    cache,
-  });
+  await assembleSkillStatuses(repos, { reader, cache: makeMemoryCache() });
 
-  assertEquals(passedRef, "HEAD"); // the polled commit sha, not "main" (repo.branch)
+  assertEquals(passedRef, "c2"); // the polled HEAD sha, not "main" (repo.branch)
 });
 
 Deno.test("assembleSkillStatuses surfaces a transient walk failure as error without caching", async () => {
   const repos = [repoWith("o/r", [skill("alpha", "H0")])];
-  // HEAD differs (→ walk), but the per-commit listing fails transiently (5xx).
-  const fetchFolderTree: FetchFolderTree = (_o, _r, _d, ref) =>
-    Promise.resolve(
-      ref === "HEAD"
-        ? { ok: true, entries: [dir("alpha", "H3")] }
-        : { ok: false, status: 502, error: "GitHub API 502 Bad Gateway" },
-    );
-  const { fetchPathCommits } = fakeCommits([c("c1")]);
-  const { cache, store, k } = memCache();
-
-  const rows = await assembleSkillStatuses(repos, {
-    fetchCommit: headAt("HEAD"),
-    fetchFolderTree,
-    fetchPathCommits,
-    cache,
+  const head = "c2";
+  const mem = makeMemoryReader({
+    source: "o/r",
+    history: [
+      { sha: "c1", folders: { "skills/alpha": "H0" } },
+      { sha: head, folders: { "skills/alpha": "H3" } }, // HEAD differs → walk
+    ],
   });
+  // HEAD listing succeeds; the per-commit walk fails transiently (5xx).
+  const reader: SourceRepoReader = {
+    ...mem.reader,
+    fetchFolderTree: (o, r, d, ref) =>
+      ref === head
+        ? mem.reader.fetchFolderTree(o, r, d, ref)
+        : Promise.resolve({
+          ok: false,
+          status: 502,
+          error: "GitHub API 502 Bad Gateway",
+        }),
+  };
+  const cache = makeMemoryCache();
+
+  const rows = await assembleSkillStatuses(repos, { reader, cache });
 
   assertEquals(rows[0].state, {
     kind: "error",
     error: "GitHub API 502 Bad Gateway",
   });
-  assertEquals(store.has(k("o/r", "skills/alpha", "H0")), false); // not poisoned
+  assertEquals(await cache.get("o/r", "skills/alpha", "H0"), undefined); // not poisoned
 });
 
 Deno.test("assembleSkillStatuses treats a 404 during the walk as folder-absent", async () => {
   const repos = [repoWith("o/r", [skill("alpha", "H0")])];
+  const head = "c2";
+  const mem = makeMemoryReader({
+    source: "o/r",
+    history: [
+      { sha: "c1", folders: { "skills/alpha": "H0" } },
+      { sha: head, folders: { "skills/alpha": "H3" } },
+    ],
+  });
   // A 404 is a definitive "absent at this ref", not a transient failure: the walk
   // continues, finds no match, and negative-caches diverged.
-  const fetchFolderTree: FetchFolderTree = (_o, _r, _d, ref) =>
-    Promise.resolve(
-      ref === "HEAD"
-        ? { ok: true, entries: [dir("alpha", "H3")] }
-        : { ok: false, status: 404, error: "GitHub API 404 Not Found" },
-    );
-  const { fetchPathCommits } = fakeCommits([c("c1")]);
-  const { cache, store, k } = memCache();
+  const reader: SourceRepoReader = {
+    ...mem.reader,
+    fetchFolderTree: (o, r, d, ref) =>
+      ref === head
+        ? mem.reader.fetchFolderTree(o, r, d, ref)
+        : Promise.resolve({
+          ok: false,
+          status: 404,
+          error: "GitHub API 404 Not Found",
+        }),
+  };
+  const cache = makeMemoryCache();
 
-  const rows = await assembleSkillStatuses(repos, {
-    fetchCommit: headAt("HEAD"),
-    fetchFolderTree,
-    fetchPathCommits,
-    cache,
-  });
+  const rows = await assembleSkillStatuses(repos, { reader, cache });
 
   assertEquals(rows[0].state, { kind: "diverged" });
-  assertEquals(store.get(k("o/r", "skills/alpha", "H0")), null);
+  assertEquals(await cache.get("o/r", "skills/alpha", "H0"), null);
 });
 
 Deno.test("assembleSkillStatuses surfaces a repo poll failure as an error state", async () => {
   const repos = [repoWith("o/r", [skill("alpha", "H0")])];
-  const { fetchFolderTree, refs } = fakeTree({});
-  const { fetchPathCommits, calls } = fakeCommits([]);
-  const { cache } = memCache();
-  const fetchCommit: FetchCommit = () =>
-    Promise.resolve({ ok: false, error: "boom" });
+  const mem = makeMemoryReader({
+    source: "o/r",
+    history: [{ sha: "c1", folders: { "skills/alpha": "H0" } }],
+  });
+  const reader: SourceRepoReader = {
+    ...mem.reader,
+    fetchCommit: () => Promise.resolve({ ok: false, error: "boom" }),
+  };
 
   const rows = await assembleSkillStatuses(repos, {
-    fetchCommit,
-    fetchFolderTree,
-    fetchPathCommits,
-    cache,
+    reader,
+    cache: makeMemoryCache(),
   });
 
   assertEquals(rows[0].state, { kind: "error", error: "boom" });
-  assertEquals(refs.length, 0);
-  assertEquals(calls(), 0);
+  assertEquals(mem.calls.listedRefs.length, 0); // never listed a folder
+  assertEquals(mem.calls.pathCommitsCalls, 0);
 });
 
 Deno.test("assembleSkillStatuses lists a shared parent dir once for all its skills", async () => {
   const repos = [repoWith("o/r", [skill("alpha", "Ha"), skill("beta", "Hb")])];
-  const { fetchFolderTree, refs } = fakeTree({
-    HEAD: [dir("alpha", "Ha"), dir("beta", "Hb")], // both current
+  const { reader, calls } = makeMemoryReader({
+    source: "o/r",
+    history: [{
+      sha: "c1",
+      folders: { "skills/alpha": "Ha", "skills/beta": "Hb" },
+    }],
   });
-  const { fetchPathCommits } = fakeCommits([]);
-  const { cache } = memCache();
 
   const rows = await assembleSkillStatuses(repos, {
-    fetchCommit: headAt("HEAD"),
-    fetchFolderTree,
-    fetchPathCommits,
-    cache,
+    reader,
+    cache: makeMemoryCache(),
   });
 
   assertEquals(rows.map((r) => [r.name, r.state.kind]), [
     ["alpha", "current"],
     ["beta", "current"],
   ]);
-  assertEquals(refs, ["HEAD"]); // one listing, memoized across both skills
+  assertEquals(calls.listedRefs, ["c1"]); // one listing, memoized across both skills
 });
