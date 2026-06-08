@@ -256,12 +256,13 @@ pub fn run() {
 
             // Tray lives in setup so it's present at launch, before the hidden
             // webview loads; the menu is attached later from TS via renderMenu.
+            // A dedicated template icon (black + alpha), not bundle.icon's full-
+            // colour app icon: drawn at menu-bar size and, as a template
+            // (icon_as_template), inverted for light/dark bars. include_image!
+            // embeds it at compile time, so a missing asset fails the build.
             TrayIconBuilder::with_id(TRAY_ID)
-                .icon(
-                    app.default_window_icon()
-                        .ok_or("default window icon missing (tauri.conf.json bundle.icon)")?
-                        .clone(),
-                )
+                .icon(tauri::include_image!("icons/tray-icon.png"))
+                .icon_as_template(true)
                 .build(app)?;
 
             // Poll-clock (ADR-0005): emit poll-tick on the cadence so the hidden
