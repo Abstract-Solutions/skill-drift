@@ -185,14 +185,33 @@ Deno.test("makeMemoryReader: fetchPathCommits returns touching commits newest-fi
   });
 });
 
-Deno.test("makeMemoryReader: serves only its source; another repo 404s", async () => {
+Deno.test("makeMemoryReader: a wrong-repo call 404s and records nothing", async () => {
+  const { reader, calls } = makeMemoryReader({
+    source: "o/r",
+    history: [{ sha: "c1", folders: { "skills/alpha": "Ha" } }],
+  });
+  const res = await reader.fetchFolderTree("other", "repo", "skills", "c1");
+  assertEquals(res.ok, false);
+  if (!res.ok) assertEquals(res.status, 404);
+  assertEquals(calls, { listedRefs: [], pathCommitsCalls: 0 }); // guarded before recording
+});
+
+Deno.test("makeMemoryReader: an unknown ref 404s like the HTTP adapter", async () => {
   const { reader } = makeMemoryReader({
     source: "o/r",
     history: [{ sha: "c1", folders: { "skills/alpha": "Ha" } }],
   });
-  const res = await reader.fetchCommit("other", "repo", "main");
-  assertEquals(res.ok, false);
-  if (!res.ok) assertEquals(res.status, 404);
+  const tree = await reader.fetchFolderTree("o", "r", "skills", "nope");
+  assertEquals(tree.ok, false);
+  if (!tree.ok) assertEquals(tree.status, 404);
+  const commits = await reader.fetchPathCommits(
+    "o",
+    "r",
+    "skills/alpha",
+    "nope",
+  );
+  assertEquals(commits.ok, false);
+  if (!commits.ok) assertEquals(commits.status, 404);
 });
 
 Deno.test("makeMemoryReader: records listed refs and path-commits calls", async () => {

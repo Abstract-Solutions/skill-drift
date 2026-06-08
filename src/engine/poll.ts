@@ -367,13 +367,16 @@ export function makeMemoryReader(
       return Promise.resolve({ ok: true, commit: asCommit(head) });
     },
     fetchFolderTree: (owner, repo, dir, ref) => {
-      calls.listedRefs.push(ref);
       if (!serves(owner, repo)) {
         return Promise.resolve(notFound(`${owner}/${repo}`));
       }
-      // The parent's children at this ref: every watched folder under `dir` present
-      // (non-null) after carry-forward. An unknown ref lists nothing.
+      // An unknown ref is a missing commit: 404 as the HTTP adapter would, so the two
+      // adapters stay substitutable rather than this one silently listing nothing.
       const i = indexOf(ref);
+      if (i < 0) return Promise.resolve(notFound(`ref ${ref}`));
+      calls.listedRefs.push(ref);
+      // The parent's children at this ref: every watched folder under `dir` present
+      // (non-null) after carry-forward.
       const entries: FolderEntry[] = [];
       for (const folder of allFolders) {
         if (dirname(folder) !== dir) continue;
@@ -385,14 +388,16 @@ export function makeMemoryReader(
       return Promise.resolve({ ok: true, entries });
     },
     fetchPathCommits: (owner, repo, path, ref) => {
-      calls.pathCommitsCalls++;
       if (!serves(owner, repo)) {
         return Promise.resolve(notFound(`${owner}/${repo}`));
       }
+      const start = indexOf(ref);
+      if (start < 0) return Promise.resolve(notFound(`ref ${ref}`));
+      calls.pathCommitsCalls++;
       // Newest-first: walk down from the ref, emitting each commit that *changed*
       // path — its declared sha differs from the carry-forward at the prior commit.
       const commits: Commit[] = [];
-      for (let i = indexOf(ref); i >= 0; i--) {
+      for (let i = start; i >= 0; i--) {
         const declared = history[i].folders[path];
         if (declared !== undefined && declared !== folderShaAt(i - 1, path)) {
           commits.push(asCommit(history[i]));
