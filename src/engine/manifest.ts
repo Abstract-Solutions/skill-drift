@@ -7,6 +7,7 @@
 export interface SkillEntry {
   source: string;
   sourceType: string;
+  /** Path to the Skill's SKILL.md file; deriveWatchedRepos strips it to the folder. */
   skillPath: string;
   skillFolderHash: string;
 }
@@ -54,6 +55,18 @@ export function parseSource(source: string): { owner: string; repo: string } {
   return { owner, repo };
 }
 
+// The Manifest records skillPath as the path to a Skill's SKILL.md file (the
+// install tooling's format), but poll's contract is the Skill's *folder*
+// (CONTEXT.md) — it lists the folder in the Source Repo tree. Without this every
+// Skill reads as Removed, since poll would look for a directory named "SKILL.md".
+// Strip a trailing "/SKILL.md"; a path already at the folder is returned unchanged.
+const SKILL_FILE_SUFFIX = "/SKILL.md";
+function skillFolder(skillPath: string): string {
+  return skillPath.endsWith(SKILL_FILE_SUFFIX)
+    ? skillPath.slice(0, -SKILL_FILE_SUFFIX.length)
+    : skillPath;
+}
+
 // Groups the Manifest's github Skills by Source Repo, sorted by source. The
 // Manifest records no branch, so the default-branch poll is "main".
 export function deriveWatchedRepos(manifest: Manifest): WatchedRepo[] {
@@ -71,7 +84,7 @@ export function deriveWatchedRepos(manifest: Manifest): WatchedRepo[] {
     }
     repo.skills.push({
       name,
-      skillPath: entry.skillPath,
+      skillPath: skillFolder(entry.skillPath),
       skillFolderHash: entry.skillFolderHash,
     });
   }

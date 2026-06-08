@@ -97,6 +97,31 @@ Deno.test("deriveWatchedRepos drops a github entry missing a polled field", () =
   ]);
 });
 
+Deno.test("deriveWatchedRepos normalises a SKILL.md path to the Skill folder", () => {
+  const manifest: Manifest = {
+    version: 1,
+    skills: {
+      nested: gh("acme/repo", "skills/git-helper/SKILL.md", "h1"),
+      root: gh("acme/repo", "git-helper/SKILL.md", "h2"),
+    },
+  };
+
+  assertEquals(deriveWatchedRepos(manifest), [
+    {
+      source: "acme/repo",
+      branch: "main",
+      skills: [
+        {
+          name: "nested",
+          skillPath: "skills/git-helper",
+          skillFolderHash: "h1",
+        },
+        { name: "root", skillPath: "git-helper", skillFolderHash: "h2" },
+      ],
+    },
+  ]);
+});
+
 Deno.test("parseManifest accepts a well-formed Manifest", () => {
   const manifest: Manifest = {
     version: 1,
