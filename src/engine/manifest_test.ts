@@ -97,6 +97,35 @@ Deno.test("deriveWatchedRepos drops a github entry missing a polled field", () =
   ]);
 });
 
+Deno.test("deriveWatchedRepos drops an entry whose fields are not strings", () => {
+  const manifest = {
+    version: 1,
+    skills: {
+      good: gh("owner/repo", "skills/good", "h1"),
+      // A non-string skillPath is truthy, so it slips past a bare presence check
+      // and would throw in skillFolder — it must be dropped, not crash.
+      bad: {
+        source: "owner/repo",
+        sourceType: "github",
+        skillPath: 42,
+        skillFolderHash: "h2",
+      },
+    },
+  } as unknown as Manifest;
+
+  assertEquals(deriveWatchedRepos(manifest), [
+    {
+      source: "owner/repo",
+      branch: "main",
+      skills: [{
+        name: "good",
+        skillPath: "skills/good",
+        skillFolderHash: "h1",
+      }],
+    },
+  ]);
+});
+
 Deno.test("deriveWatchedRepos normalises a SKILL.md path to the Skill folder", () => {
   const manifest: Manifest = {
     version: 1,
