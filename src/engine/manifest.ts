@@ -32,6 +32,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
 // Parses the Manifest's raw JSON behind a minimal shape guard (ADR-0010): the
 // value parses and its `skills` is an object → a Manifest, else null. The cycle
 // maps null to its malformed outcome (CONTEXT.md). Per-entry validation is
@@ -73,10 +77,17 @@ export function deriveWatchedRepos(manifest: Manifest): WatchedRepo[] {
   const bySource = new Map<string, WatchedRepo>();
   for (const [name, entry] of Object.entries(manifest.skills)) {
     if (entry.sourceType !== "github") continue;
-    // A github entry missing a polled field can't be watched — parseManifest's
-    // shape guard doesn't validate per-entry, so drop it here rather than push
-    // undefined into a WatchedRepo and break the #5/#6 baseline.
-    if (!entry.source || !entry.skillPath || !entry.skillFolderHash) continue;
+    // A github entry missing or mistyping a polled field can't be watched —
+    // parseManifest's shape guard doesn't validate per-entry, so at runtime a
+    // field may be absent or a non-string despite the SkillEntry type. Require
+    // non-empty strings before the string ops downstream (skillFolder here,
+    // parseSource/dirname in poll) and drop anything else, rather than push junk
+    // into a WatchedRepo or throw on a malformed Manifest.
+    if (
+      !isNonEmptyString(entry.source) ||
+      !isNonEmptyString(entry.skillPath) ||
+      !isNonEmptyString(entry.skillFolderHash)
+    ) continue;
     let repo = bySource.get(entry.source);
     if (!repo) {
       repo = { source: entry.source, branch: "main", skills: [] };
