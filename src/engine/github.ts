@@ -184,11 +184,14 @@ export function makePathCommitsFetcher(
   };
 }
 
-// One constructor for the three fetchers, shaped for AssembleDeps (poll.ts's
-// Fetchers). The edge calls makeFetchers(token) once and spreads it; the token and
-// fetchImpl flow through to each. Inferred return matches Fetchers structurally —
-// annotating it here would import poll.ts (which imports this module).
-export function makeFetchers(token?: string, fetchImpl: typeof fetch = fetch) {
+// The HTTP adapter for poll.ts's SourceRepoReader: one constructor for the three
+// fetchers. The edge calls makeHttpReader(token) once; the token and fetchImpl flow
+// through to each. Inferred return matches SourceRepoReader structurally — annotating
+// it here would import poll.ts (which imports this module).
+export function makeHttpReader(
+  token?: string,
+  fetchImpl: typeof fetch = fetch,
+) {
   return {
     fetchCommit: makeGitHubFetcher(token, fetchImpl),
     fetchFolderTree: makeFolderTreeFetcher(token, fetchImpl),

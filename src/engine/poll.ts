@@ -5,6 +5,8 @@
 import type {
   Commit,
   CommitResult,
+  FetchError,
+  FolderEntry,
   FolderTreeResult,
   PathCommitsResult,
 } from "./github.ts";
@@ -47,16 +49,20 @@ export interface BaselineCache {
   ): Promise<void>;
 }
 
-export interface AssembleDeps {
+// The three reads the engine needs from a Skill's Source Repo, grouped behind one
+// port — one seam with two adapters: makeHttpReader (github.ts) in prod, and
+// makeMemoryReader (below) in tests. The methods never throw; failures arrive as
+// non-ok results.
+export interface SourceRepoReader {
   fetchCommit: FetchCommit;
   fetchFolderTree: FetchFolderTree;
   fetchPathCommits: FetchPathCommits;
-  cache: BaselineCache;
 }
 
-// The three GitHub fetchers without the cache — what makeFetchers(token) builds
-// (github.ts) and the cycle spreads into AssembleDeps alongside its own cache.
-export type Fetchers = Omit<AssembleDeps, "cache">;
+export interface AssembleDeps {
+  reader: SourceRepoReader;
+  cache: BaselineCache;
+}
 
 export interface RepoStatus {
   source: string;
@@ -105,7 +111,7 @@ export async function assembleSkillStatuses(
   repos: WatchedRepo[],
   deps: AssembleDeps,
 ): Promise<SkillStatus[]> {
-  const repoStatuses = await pollRepos(repos, deps.fetchCommit);
+  const repoStatuses = await pollRepos(repos, deps.reader.fetchCommit);
 
   const treeMemo = new Map<string, Promise<FolderTreeResult>>();
   const listFolder = (
@@ -117,7 +123,7 @@ export async function assembleSkillStatuses(
     const key = `${owner}/${repo}|${dir}|${ref}`;
     let p = treeMemo.get(key);
     if (!p) {
-      p = deps.fetchFolderTree(owner, repo, dir, ref);
+      p = deps.reader.fetchFolderTree(owner, repo, dir, ref);
       treeMemo.set(key, p);
     }
     return p;
@@ -205,7 +211,7 @@ async function skillState(
   // Pin the commit list to the polled HEAD sha (not repo.branch) so it can't
   // drift if the branch advances mid-request — the folder-tree compare used the
   // same sha.
-  const commitsRes = await deps.fetchPathCommits(
+  const commitsRes = await deps.reader.fetchPathCommits(
     owner,
     repoName,
     folder,
@@ -278,4 +284,123 @@ export function makeMemoryCache(): BaselineCache {
       return Promise.resolve();
     },
   };
+}
+
+// In-memory SourceRepoReader for tests — the reader seam's second adapter, mirroring
+// makeMemoryCache for the cache seam. A git-shaped world replaces the three
+// hand-rolled fetcher fakes: one history is described once, and the three reads are
+// derived as views of it, so a test can't construct a HEAD/commits/tree triple that
+// disagrees the way three separate fakes could.
+
+// One commit in a MemoryWorld. folders names only the watched folders this commit
+// *changes*, folder path → tree-sha (null = removed from this commit on); unlisted
+// folders carry forward. message/author/date default to empty for commits a test
+// doesn't decorate.
+export interface MemoryCommit {
+  sha: string;
+  folders: Record<string, string | null>;
+  message?: string;
+  author?: string;
+  date?: string;
+}
+
+// A git-shaped in-memory Source Repo: an ordered history, oldest → newest, the last
+// entry being HEAD.
+export interface MemoryWorld {
+  /** "owner/repo" — the one Source Repo this reader serves; other repos 404. */
+  source: string;
+  /** Oldest → newest; the last entry is HEAD. Non-empty. */
+  history: MemoryCommit[];
+}
+
+// What the reader recorded, so tests keep the hand-rolled fakes' interaction checks:
+// listedRefs is every folder-tree ref actually listed (post-memoization), in order;
+// pathCommitsCalls counts the path-history fetches.
+export interface ReaderCalls {
+  listedRefs: string[];
+  pathCommitsCalls: number;
+}
+
+export function makeMemoryReader(
+  world: MemoryWorld,
+): { reader: SourceRepoReader; calls: ReaderCalls } {
+  const calls: ReaderCalls = { listedRefs: [], pathCommitsCalls: 0 };
+  const history = world.history;
+  const allFolders = new Set(history.flatMap((c) => Object.keys(c.folders)));
+
+  const indexOf = (ref: string) => history.findIndex((c) => c.sha === ref);
+
+  // Carry-forward tree-sha of a folder as of commit index i: the latest declaration
+  // in history[0..i], or null when never declared or last removed.
+  const folderShaAt = (i: number, folder: string): string | null => {
+    let sha: string | null = null;
+    for (let j = 0; j <= i; j++) {
+      const v = history[j].folders[folder];
+      if (v !== undefined) sha = v;
+    }
+    return sha;
+  };
+
+  const asCommit = (c: MemoryCommit): Commit => ({
+    sha: c.sha,
+    message: c.message ?? "",
+    author: c.author ?? "",
+    date: c.date ?? "",
+  });
+
+  const notFound = (what: string): FetchError => ({
+    ok: false,
+    status: 404,
+    error: `memory reader: ${what} not found`,
+  });
+
+  const serves = (owner: string, repo: string) =>
+    `${owner}/${repo}` === world.source;
+
+  const reader: SourceRepoReader = {
+    fetchCommit: (owner, repo) => {
+      if (!serves(owner, repo)) {
+        return Promise.resolve(notFound(`${owner}/${repo}`));
+      }
+      const head = history.at(-1);
+      if (!head) return Promise.resolve(notFound("HEAD"));
+      return Promise.resolve({ ok: true, commit: asCommit(head) });
+    },
+    fetchFolderTree: (owner, repo, dir, ref) => {
+      calls.listedRefs.push(ref);
+      if (!serves(owner, repo)) {
+        return Promise.resolve(notFound(`${owner}/${repo}`));
+      }
+      // The parent's children at this ref: every watched folder under `dir` present
+      // (non-null) after carry-forward. An unknown ref lists nothing.
+      const i = indexOf(ref);
+      const entries: FolderEntry[] = [];
+      for (const folder of allFolders) {
+        if (dirname(folder) !== dir) continue;
+        const sha = folderShaAt(i, folder);
+        if (sha !== null) {
+          entries.push({ name: basename(folder), sha, type: "dir" });
+        }
+      }
+      return Promise.resolve({ ok: true, entries });
+    },
+    fetchPathCommits: (owner, repo, path, ref) => {
+      calls.pathCommitsCalls++;
+      if (!serves(owner, repo)) {
+        return Promise.resolve(notFound(`${owner}/${repo}`));
+      }
+      // Newest-first: walk down from the ref, emitting each commit that *changed*
+      // path — its declared sha differs from the carry-forward at the prior commit.
+      const commits: Commit[] = [];
+      for (let i = indexOf(ref); i >= 0; i--) {
+        const declared = history[i].folders[path];
+        if (declared !== undefined && declared !== folderShaAt(i - 1, path)) {
+          commits.push(asCommit(history[i]));
+        }
+      }
+      return Promise.resolve({ ok: true, commits });
+    },
+  };
+
+  return { reader, calls };
 }
