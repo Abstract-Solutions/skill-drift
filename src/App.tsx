@@ -7,7 +7,7 @@ import {
   readManifest,
   renderMenu,
   saveSnapshot,
-  setBadge,
+  setAlert,
 } from "./platform.ts";
 import { makeHttpReader } from "./engine/github.ts";
 import { makePollScheduler } from "./engine/schedule.ts";
@@ -20,7 +20,7 @@ function App() {
     // poll-tick both drive it, and the interval can tick mid-cycle — the
     // scheduler keeps at most one run in flight plus one trailing. Each run reads
     // the Manifest, derives the Watched Repos, and returns a PollOutcome; the view
-    // builds the menu from it (buildMenuModel) and the badge, then renders (ADR-0011).
+    // builds the menu from it (buildMenuModel) and the attention mark, then renders.
     const scheduler = makePollScheduler(async () => {
       const out = await runPollCycle({
         readManifest,
@@ -51,9 +51,10 @@ function App() {
           break;
       }
       // The view composes presentation from the pure outcome (ADR-0011): the tray
-      // menu via buildMenuModel, the badge from the Behind count (0 on any non-ok).
+      // menu via buildMenuModel, and the attention mark — on when a poll found any
+      // Behind Skill, off on every other outcome (ADR-0013).
       await renderMenu(buildMenuModel(out, { now: now() }));
-      await setBadge(out.kind === "ok" ? out.behind : 0);
+      await setAlert(out.kind === "ok" && out.behind > 0);
     });
 
     // A menu-bar-only app (Accessory, ADR-0009) is quittable only via the tray

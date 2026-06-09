@@ -1,5 +1,8 @@
-<!-- Design source for the menu-bar tray icon (#10); the committed PNG is rendered
-     from ImageMagick -draw primitives, not from this SVG. -->
+<!-- Design source for the base menu-bar tray icon (#10): the plain branch glyph,
+     shown when nothing is Behind. The committed PNG is rendered from ImageMagick
+     -draw primitives by render-tray-icons.sh (that script is the authoritative
+     recipe — ImageMagick ignores SVG strokes), not converted from this SVG. The
+     alert variant is tray-icon-alert.svg. -->
 <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
   <g fill="none" stroke="#000" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
     <line x1="30" y1="24" x2="30" y2="76"/>
