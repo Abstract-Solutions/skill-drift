@@ -21,12 +21,13 @@ export function onPollTick(cb: () => void): Promise<UnlistenFn> {
   return listen(POLL_TICK_EVENT, () => cb());
 }
 
-// Behind count → tray title via the Rust set_badge command (ADR-0005). 0 clears
-// it; a menu-bar app has no native badge, so the count is the title text. Rust
-// takes u32, so clamp to a non-negative integer — a float or negative would fail
-// Tauri's deserialiser at the IPC boundary.
-export function setBadge(count: number): Promise<void> {
-  return invoke("set_badge", { count: Math.max(0, Math.trunc(count)) });
+// The menu-bar attention mark via the Rust set_alert command (ADR-0013): on=true
+// swaps the tray to the exclamation template, on=false the plain branch glyph. The
+// Behind count is no longer surfaced in the bar — it's a binary "anything Behind?"
+// signal; the exact counts live in the menu rows (· N behind). Revises ADR-0005's
+// count-as-tray-title.
+export function setAlert(on: boolean): Promise<void> {
+  return invoke("set_alert", { on });
 }
 
 // Reads the Manifest via the Rust read_manifest command (ADR-0007) — the

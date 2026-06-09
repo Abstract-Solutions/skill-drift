@@ -159,7 +159,7 @@ Deno.test("runPollCycle: installed + token → ok with assembled statuses, snaps
   }]);
 });
 
-Deno.test("runPollCycle: a Behind skill counts 1 toward the badge", async () => {
+Deno.test("runPollCycle: a Behind skill counts 1 toward the Behind count", async () => {
   const raw = manifest({ alpha: ghSkill("o/r", "skills/alpha", "H0") });
   // alpha's folder advances H0 → H2 → H3 (HEAD); installed at H0 → behind by 2.
   const { reader } = makeMemoryReader({

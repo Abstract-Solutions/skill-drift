@@ -1,0 +1,20 @@
+<!-- Design source for the alert menu-bar tray icon (#24, ADR-0013): the same branch
+     glyph as tray-icon.svg plus an exclamation in the empty bottom-right quadrant,
+     shown when ≥1 Skill is Behind. The committed PNG is rendered from ImageMagick
+     -draw primitives by render-tray-icons.sh (that script is the authoritative
+     recipe — ImageMagick ignores SVG strokes), not converted from this SVG. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+  <g fill="none" stroke="#000" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="30" y1="24" x2="30" y2="76"/>
+    <path d="M70 32 C70 52 52 53 34 53"/>
+  </g>
+  <g fill="#000">
+    <circle cx="30" cy="24" r="9.5"/>
+    <circle cx="30" cy="76" r="9.5"/>
+    <circle cx="70" cy="24" r="9.5"/>
+  </g>
+  <!-- exclamation: vertical stroke + dot, pushed into the corner (x79) so it reads
+       as a distinct mark, not a fourth branch dot. -->
+  <line x1="79" y1="55" x2="79" y2="71" fill="none" stroke="#000" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="79" cy="87" r="6.5" fill="#000"/>
+</svg>

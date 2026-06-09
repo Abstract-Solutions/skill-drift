@@ -1,8 +1,9 @@
 // The Poll Cycle as a deep module (ADR-0010, ADR-0011): one pass that reads the
 // Manifest, derives the Watched Repos, polls GitHub, classifies every Skill, writes
 // the snapshot, and returns one PollOutcome — pure classification, no rendering. The
-// view composes the menu from it (buildMenuModel) and the badge; the cycle never
-// imports the menu. #5 landed the live poll; #6 the freshness states + no-access.
+// view composes the menu from it (buildMenuModel) and the attention mark; the
+// cycle never imports the menu. #5 landed the live poll; #6 the freshness states +
+// no-access.
 
 import {
   assembleSkillStatuses,
@@ -13,8 +14,9 @@ import {
 import { deriveWatchedRepos, parseManifest } from "./manifest.ts";
 
 // One pass's Poll Outcome (CONTEXT.md) — pure classification, the discriminated
-// union the view renders. `ok` carries the Behind count (the badge), the per-Skill
-// statuses (the menu rows), and the poll time (the menu's updated-header). The token
+// union the view renders. `ok` carries the Behind count (the attention mark's
+// trigger when >0, ADR-0013), the per-Skill statuses (the menu rows), and the poll
+// time (the menu's updated-header). The token
 // edge owns three outcomes: no-token (absent), no-access (unreadable), then a poll.
 // The view builds the menu from this; the cycle attaches none (ADR-0011).
 export type PollOutcome =
@@ -74,8 +76,9 @@ export async function runPollCycle(deps: CycleDeps): Promise<PollOutcome> {
     reader: deps.makeReader(token),
     cache: deps.cache,
   });
-  // Badge = how many Skills are Behind (CONTEXT.md), one per Skill needing
-  // attention — not the sum of each Skill's Behind-by distance.
+  // How many Skills are Behind (CONTEXT.md), one per Skill needing attention —
+  // not the sum of each Skill's Behind-by distance. The view turns >0 into the
+  // attention mark (ADR-0013); the rows carry the per-Skill tallies.
   const behind = statuses.filter((s) => s.state.kind === "behind").length;
 
   // The cycle owns the snapshot write (ADR-0010), symmetric with the BaselineCache
