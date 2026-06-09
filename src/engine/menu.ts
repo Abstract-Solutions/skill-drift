@@ -3,7 +3,7 @@
 // buildMenuModel is the pure transform from a PollOutcome to that data (ADR-0010,
 // ADR-0011 — the view composes it; the cycle no longer attaches a menu):
 // the actionable-first ordering, the state glyphs, the Behind-count label, the
-// Watched Commit submenus, the Current collapse, and the non-ok frames are all
+// inline Watched Commit rows, the Current summary, and the non-ok frames are all
 // decided here and asserted as data, never at the edge.
 
 import type { Commit } from "./github.ts";
@@ -12,11 +12,13 @@ import type { PollOutcome } from "./cycle.ts";
 
 export type MenuModel = { readonly rows: readonly MenuRow[] };
 
+// No `submenu` variant by design: macOS tears an NSStatusItem menu down on the first
+// hover of a submenu row (ADR-0016), so the model is deliberately flat. Drill-downs
+// render as inline indented rows (a Behind Skill's commits) instead of nesting.
 export type MenuRow =
   | { kind: "header"; label: string }
   | { kind: "separator" }
   | { kind: "item"; label: string; enabled: boolean }
-  | { kind: "submenu"; label: string; rows: readonly MenuRow[] }
   | { kind: "quit"; label: string };
 
 // Leading glyph per Freshness state. Saturated dots read on both light and dark menu
@@ -42,8 +44,9 @@ const FRAME_HEADER: Record<Exclude<PollOutcome["kind"], "ok">, string> = {
   "no-access": "skill-drift — can't read GitHub token",
 };
 
-// The middle Freshness states, in actionable order. Behind leads as a submenu and
-// Current trails as a collapsed summary, so only these three list as leaf rows.
+// The middle Freshness states, in actionable order. Behind leads (its commits inline
+// beneath it) and Current trails as a one-line summary, so only these three list as
+// single leaf rows.
 const LEAF_ORDER = ["diverged", "removed", "error"] as const;
 
 // One menu per Poll Outcome (ADR-0010): an ok poll renders the per-Skill freshness
@@ -63,7 +66,7 @@ export function buildMenuModel(
     { kind: "header", label: updated },
     { kind: "separator" },
   ];
-  for (const s of byKind.behind ?? []) rows.push(behindRow(s, now));
+  for (const s of byKind.behind ?? []) rows.push(...behindRows(s, now));
   for (const kind of LEAF_ORDER) {
     for (const s of byKind[kind] ?? []) rows.push(leafRow(s));
   }
@@ -91,22 +94,34 @@ function framedMenu(header: string): MenuModel {
   };
 }
 
+// Indent for a Behind Skill's inline commit rows — the nesting a submenu would have
+// shown, now that the menu must stay flat (ADR-0016). Leading spaces, not a dash or
+// dot: a glyph would read as one more state marker in a menu already led by them.
+const COMMIT_INDENT = "    ";
+
 // A Behind Skill: the count folded into the label (issue #6's `git-helper · 3
-// behind`), its Watched Commits as a submenu. behindBy ≥ 1, so commits is never
-// empty — the submenu always has rows.
-function behindRow(s: SkillStatus, now: Date): MenuRow {
+// behind`), then its Watched Commits as inline rows indented beneath it. behindBy ≥ 1,
+// so commits is never empty — there is always at least one commit row. Inline rather
+// than a submenu because macOS dismisses an NSStatusItem submenu on first hover
+// (ADR-0016); COMMIT_INDENT stands in for the drill-down's nesting.
+function behindRows(s: SkillStatus, now: Date): MenuRow[] {
   const st = s.state;
   // Only Behind reaches here; the guard keeps the commit fields in scope for tsc.
-  if (st.kind !== "behind") return leafRow(s);
-  return {
-    kind: "submenu",
-    label: `${STATE_GLYPH.behind} ${s.name} · ${st.behindBy} behind`,
-    rows: st.commits.map((c): MenuRow => ({
+  if (st.kind !== "behind") return [leafRow(s)];
+  return [
+    {
       kind: "item",
       enabled: false,
-      label: `${commitSummary(c)} · ${relativeTime(c.date, now)}`,
+      label: `${STATE_GLYPH.behind} ${s.name} · ${st.behindBy} behind`,
+    },
+    ...st.commits.map((c): MenuRow => ({
+      kind: "item",
+      enabled: false,
+      label: `${COMMIT_INDENT}${commitSummary(c)} · ${
+        relativeTime(c.date, now)
+      }`,
     })),
-  };
+  ];
 }
 
 // Diverged / Removed / Error have no drill-down yet — one disabled line each, the
@@ -119,17 +134,16 @@ function leafRow(s: SkillStatus): MenuRow {
   };
 }
 
-// Current Skills are the boring majority; collapse them under one summary so the
-// menu stays short (issue #6) — the count up front, the names in the submenu.
+// Current Skills are the boring majority; collapse them to one summary line so the
+// menu stays short (issue #6) — just the count. Listing each name would be the natural
+// drill-down, but a submenu dismisses on first hover on macOS (ADR-0016) and inlining
+// every name re-clutters the bar; the names return as clickable rows with the action
+// layer (#25).
 function currentSummaryRow(current: readonly SkillStatus[]): MenuRow {
   return {
-    kind: "submenu",
+    kind: "item",
+    enabled: false,
     label: `${STATE_GLYPH.current} ${current.length} up to date`,
-    rows: current.map((s): MenuRow => ({
-      kind: "item",
-      enabled: false,
-      label: s.name,
-    })),
   };
 }
 
