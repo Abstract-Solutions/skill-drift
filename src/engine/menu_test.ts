@@ -3,7 +3,6 @@ import {
   bootMenu,
   buildMenuModel,
   type MenuModel,
-  type MenuRow,
   relativeTime,
   STATE_GLYPH,
 } from "./menu.ts";
@@ -51,15 +50,9 @@ const endsInQuit = (model: MenuModel): boolean =>
   model.rows.at(-1)?.kind === "quit";
 
 // The skill/summary rows between the header+separator and the trailing separator.
+// The menu is flat (no submenus — ADR-0016), so every content row is a plain item.
 const contentLabels = (model: MenuModel): string[] =>
-  model.rows.flatMap((r) =>
-    r.kind === "item" || r.kind === "submenu" ? [r.label] : []
-  );
-
-const subRows = (row: MenuRow): readonly MenuRow[] => {
-  if (row.kind !== "submenu") throw new Error("expected a submenu row");
-  return row.rows;
-};
+  model.rows.flatMap((r) => (r.kind === "item" ? [r.label] : []));
 
 Deno.test("buildMenuModel orders Skills actionable-first", () => {
   const statuses = [
@@ -74,8 +67,12 @@ Deno.test("buildMenuModel orders Skills actionable-first", () => {
     status("div1", { kind: "diverged" }),
     status("err1", { kind: "error", error: "boom" }),
   ];
+  // Behind leads with its commits inline beneath it, then diverged/removed/error, then
+  // the Current summary — actionable-first, the drill-down flattened to indented rows.
   assertEquals(contentLabels(buildMenuModel(ok(statuses), { now: NOW })), [
     `${STATE_GLYPH.behind} beh1 · 2 behind`,
+    "    c2 · just now",
+    "    c3 · just now",
     `${STATE_GLYPH.diverged} div1 · diverged`,
     `${STATE_GLYPH.removed} rem1 · removed`,
     `${STATE_GLYPH.error} err1 · error`,
@@ -83,7 +80,7 @@ Deno.test("buildMenuModel orders Skills actionable-first", () => {
   ]);
 });
 
-Deno.test("buildMenuModel: a Behind Skill folds in the count and lists its commits", () => {
+Deno.test("buildMenuModel: a Behind Skill folds in the count and lists its commits inline", () => {
   const twoHoursAgo = new Date(NOW.getTime() - 2 * 60 * 60_000).toISOString();
   const commits = [
     commit("a1b2c3d4e5", "fix the bug", twoHoursAgo),
@@ -98,12 +95,11 @@ Deno.test("buildMenuModel: a Behind Skill folds in the count and lists its commi
     })]),
     { now: NOW },
   );
-  const behind = model.rows.find((r) => r.kind === "submenu");
-  if (behind?.kind !== "submenu") throw new Error("expected a behind submenu");
-  assertEquals(behind.label, `${STATE_GLYPH.behind} git-helper · 2 behind`);
-  assertEquals(subRows(behind).map((r) => r.kind === "item" ? r.label : ""), [
-    "fix the bug · 2h ago",
-    "add the feature · 2h ago",
+  // The Skill header, then one indented row per Watched Commit — no submenu (ADR-0016).
+  assertEquals(contentLabels(model), [
+    `${STATE_GLYPH.behind} git-helper · 2 behind`,
+    "    fix the bug · 2h ago",
+    "    add the feature · 2h ago",
   ]);
 });
 
@@ -117,33 +113,25 @@ Deno.test("buildMenuModel: a commit with no message falls back to its short SHA"
     })]),
     { now: NOW },
   );
-  const behind = model.rows.find((r) => r.kind === "submenu");
-  if (behind?.kind !== "submenu") throw new Error("expected a behind submenu");
-  const first = subRows(behind)[0];
-  assertEquals(first.kind === "item" && first.label, "0123456 · just now");
+  // The inline commit row shows the short SHA when the message is empty.
+  assertEquals(contentLabels(model), [
+    `${STATE_GLYPH.behind} s · 1 behind`,
+    "    0123456 · just now",
+  ]);
 });
 
-Deno.test("buildMenuModel collapses Current Skills into one summary submenu", () => {
+Deno.test("buildMenuModel collapses Current Skills into one summary row", () => {
   const statuses = ["a", "b", "c"].map((n) => status(n, { kind: "current" }));
   const model = buildMenuModel(ok(statuses), { now: NOW });
-  const summaries = model.rows.filter((r) => r.kind === "submenu");
-  assertEquals(summaries.length, 1);
-  const summary = summaries[0];
-  assertEquals(
-    summary.kind === "submenu" && summary.label,
-    `${STATE_GLYPH.current} 3 up to date`,
-  );
-  assertEquals(
-    subRows(summary).map((r) => r.kind === "item" ? r.label : ""),
-    ["a", "b", "c"],
-  );
+  // One flat count row, no submenu and no per-name rows (ADR-0016): the names are
+  // dropped here and return as clickable rows with the action layer (#25).
+  assertEquals(contentLabels(model), [`${STATE_GLYPH.current} 3 up to date`]);
 });
 
 Deno.test("buildMenuModel omits the up-to-date summary when none are Current", () => {
   const model = buildMenuModel(ok([status("x", { kind: "removed" })]), {
     now: NOW,
   });
-  assertEquals(model.rows.some((r) => r.kind === "submenu"), false);
   assertEquals(contentLabels(model), [`${STATE_GLYPH.removed} x · removed`]);
 });
 

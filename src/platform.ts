@@ -3,7 +3,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
+import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { TrayIcon } from "@tauri-apps/api/tray";
 import type { MenuModel, MenuRow } from "./engine/menu.ts";
 import type { Snapshot } from "./engine/cycle.ts";
@@ -71,7 +71,7 @@ export async function renderMenu(model: MenuModel): Promise<void> {
   await tray.setMenu(menu);
 }
 
-type NativeItem = MenuItem | PredefinedMenuItem | Submenu;
+type NativeItem = MenuItem | PredefinedMenuItem;
 
 function toNativeItem(row: MenuRow): Promise<NativeItem> {
   switch (row.kind) {
@@ -81,23 +81,12 @@ function toNativeItem(row: MenuRow): Promise<NativeItem> {
       return PredefinedMenuItem.new({ item: "Separator" });
     case "item":
       return MenuItem.new({ text: row.label, enabled: row.enabled });
-    case "submenu":
-      return toNativeSubmenu(row);
     case "quit":
       return PredefinedMenuItem.new({ item: "Quit", text: row.label });
     default:
       // Exhaustiveness: a new MenuRow kind fails tsc here; guards a bad kind at runtime.
       return assertNever(row);
   }
-}
-
-// A submenu walks its own rows the same way — the menu model nests, the edge stays
-// a thin recursive walk (ADR-0010).
-async function toNativeSubmenu(
-  row: Extract<MenuRow, { kind: "submenu" }>,
-): Promise<Submenu> {
-  const items = await Promise.all(row.rows.map(toNativeItem));
-  return Submenu.new({ text: row.label, items });
 }
 
 function assertNever(row: never): never {
