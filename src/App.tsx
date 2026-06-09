@@ -83,6 +83,10 @@ function App() {
         await renderMenu(model);
         lastModelKey = modelKey;
       }
+      // renderMenu's await can span a teardown (StrictMode cleanup / unmount), so
+      // re-gate before the second tray write: a late setAlert re-sets the icon and
+      // would dismiss the live effect's open menu — the same write the top gate stops.
+      if (cancelled) return;
       const alert = out.kind === "ok" && out.behind > 0;
       if (alert !== lastAlert) {
         await setAlert(alert);
